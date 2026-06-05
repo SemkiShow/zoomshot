@@ -25,6 +25,12 @@ typedef enum
     Tool_LaserPointer,
 } Tool;
 
+typedef enum
+{
+    SelectState_Resize,
+    SelectState_Move,
+} SelectState;
+
 typedef struct
 {
     GMainLoop* startup_loop;
@@ -40,7 +46,7 @@ typedef struct
     Camera2D camera;
     Vector2 last_mouse_pos;
     Rectangle selection;
-    bool can_move_selection;
+    SelectState select_state;
 
     RenderTexture2D canvas;
     RenderTexture2D mask;
@@ -514,16 +520,22 @@ int main(int argc, char* argv[])
         {
             state.tool_start.x = mouse_world_pos.x;
             state.tool_start.y = mouse_world_pos.y;
-            if (state.tool == Tool_Select &&
-                !CheckCollisionPointRec(mouse_pos, fix_rec(state.selection)))
+            if (state.tool == Tool_Select)
             {
-                state.can_move_selection = false;
-                state.selection = (Rectangle){
-                    mouse_world_pos.x,
-                    mouse_world_pos.y,
-                    0,
-                    0,
-                };
+                if (CheckCollisionPointRec(mouse_world_pos, fix_rec(state.selection)))
+                {
+                    state.select_state = SelectState_Move;
+                }
+                else
+                {
+                    state.select_state = SelectState_Resize;
+                    state.selection = (Rectangle){
+                        mouse_world_pos.x,
+                        mouse_world_pos.y,
+                        0,
+                        0,
+                    };
+                }
             }
         }
 
@@ -539,17 +551,21 @@ int main(int argc, char* argv[])
                     move_tool(&state);
                     break;
                 case Tool_Select:
-                    if (state.can_move_selection &&
-                        CheckCollisionPointRec(mouse_pos, fix_rec(state.selection)))
+                    switch (state.select_state)
                     {
-                        Vector2 delta = Vector2Subtract(mouse_pos, state.last_mouse_pos);
+                    case SelectState_Resize:
+                        state.selection.width = mouse_world_pos.x - state.selection.x;
+                        state.selection.height = mouse_world_pos.y - state.selection.y;
+                        break;
+                    case SelectState_Move:
+                    {
+                        Vector2 delta =
+                            Vector2Subtract(mouse_world_pos,
+                                            GetScreenToWorld2D(state.last_mouse_pos, state.camera));
                         state.selection.x += delta.x;
                         state.selection.y += delta.y;
                     }
-                    else
-                    {
-                        state.selection.width = mouse_world_pos.x - state.selection.x;
-                        state.selection.height = mouse_world_pos.y - state.selection.y;
+                    break;
                     }
                     break;
                 case Tool_Pencil:
@@ -573,8 +589,6 @@ int main(int argc, char* argv[])
             switch (state.tool)
             {
             case Tool_Select:
-                state.can_move_selection = true;
-                break;
             case Tool_Move:
             case Tool_LaserPointer:
                 break;
