@@ -27,6 +27,7 @@ typedef struct
     GMainLoop* startup_loop;
     Texture screenshot;
     char* filename;
+    bool loop;
     Mode mode;
     Tool tool;
     RenderTexture2D canvas;
@@ -68,6 +69,7 @@ State state_new()
 {
     State state = {0};
     state.startup_loop = g_main_loop_new(NULL, FALSE);
+    state.loop = true;
     screenshot_mode(&state);
     return state;
 }
@@ -154,6 +156,120 @@ void pencil_tool(State* state)
     EndTextureMode();
 }
 
+Image take_screenshot(State state)
+{
+    Rectangle selection = state.selection;
+
+    // Fix negative sizes
+    if (selection.width < 0)
+    {
+        selection.x += selection.width;
+        selection.width *= -1;
+    }
+    if (selection.height < 0)
+    {
+        selection.y += selection.height;
+        selection.height *= -1;
+    }
+
+    // Clamp left
+    if (selection.x < 0)
+    {
+        selection.width += selection.x;
+        selection.x = 0;
+    }
+    if (selection.y < 0)
+    {
+        selection.height += selection.y;
+        selection.y = 0;
+    }
+
+    // Clamp right
+    if (selection.x + selection.width > state.screenshot.width)
+    {
+        selection.width = fmaxf(0, state.screenshot.width - selection.x);
+    }
+    if (selection.y + selection.height > state.screenshot.height)
+    {
+        selection.height = fmaxf(0, state.screenshot.height - selection.y);
+    }
+
+    RenderTexture2D texture = LoadRenderTexture(selection.width, selection.height);
+
+    BeginTextureMode(texture);
+
+    ClearBackground(BLANK);
+
+    DrawTexture(state.screenshot, -selection.x, -selection.y, WHITE);
+
+    DrawTextureRec(state.canvas.texture,
+                   (Rectangle){
+                       selection.x,
+                       -selection.y,
+                       (float)state.canvas.texture.width,
+                       (float)-state.canvas.texture.height,
+                   },
+                   (Vector2){0, 0}, WHITE);
+
+    EndTextureMode();
+
+    Image image = LoadImageFromTexture(texture.texture);
+    ImageFlipVertical(&image);
+    return image;
+}
+
+void save_screenshot(Image image)
+{
+    char timeString[100];
+    time_t rawTime;
+    struct tm* timeInfo;
+    time(&rawTime);
+    timeInfo = localtime(&rawTime);
+    strftime(timeString, sizeof(timeString), "%Y-%m-%d_%H:%M:%S", timeInfo);
+
+    size_t mark = nob_temp_save();
+    ExportImage(image, nob_temp_sprintf(SCREENSHOT_PATH, timeString));
+    nob_temp_rewind(mark);
+}
+
+bool copy_image(Image image)
+{
+    bool result = true;
+
+    int dataSize = 0;
+    unsigned char* pngData = ExportImageToMemory(image, ".png", &dataSize);
+    FILE* clipboardPipe = NULL;
+
+    if (pngData == NULL)
+    {
+        nob_log(NOB_ERROR, "Failed to ExportImageToMemory");
+        return_defer(false);
+    }
+
+    const char* displayServer = getenv("XDG_SESSION_TYPE");
+    if (displayServer != NULL && strcmp(displayServer, "wayland") == 0)
+    {
+        clipboardPipe = popen("wl-copy --type image/png", "w");
+    }
+    else
+    {
+        clipboardPipe = popen("xclip -selection clipboard -t image/png", "w");
+    }
+
+    if (clipboardPipe == NULL)
+    {
+        nob_log(NOB_ERROR, "Failed to locate native Linux clipboard tools (wl-copy/xclip).");
+        return_defer(false);
+    }
+
+    fwrite(pngData, sizeof(pngData[0]), dataSize, clipboardPipe);
+
+defer:
+    if (pngData) MemFree(pngData);
+    if (clipboardPipe) pclose(clipboardPipe);
+    return result;
+}
+
 int main(int argc, char* argv[])
 {
     State state = state_new();
@@ -206,12 +322,8 @@ int main(int argc, char* argv[])
     state.canvas = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
     state.mask = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
 
-    while (!WindowShouldClose())
+    while (!WindowShouldClose() && state.loop)
     {
-        BeginDrawing();
-
-        ClearBackground(BLACK);
-
         Vector2 mouse_pos = GetMousePosition();
 
         float wheel = GetMouseWheelMove();
@@ -275,11 +387,46 @@ int main(int argc, char* argv[])
             EndTextureMode();
         }
 
-        if (IsKeyPressed(KEY_S)) state.mode = Mode_Screenshot;
+        if (IsKeyPressed(KEY_S))
+        {
+            if (IsKeyDown(KEY_LEFT_CONTROL))
+            {
+                Image screenshot = take_screenshot(state);
+                save_screenshot(screenshot);
+                UnloadImage(screenshot);
+            }
+            else
+            {
+                state.mode = Mode_Screenshot;
+            }
+        }
         if (IsKeyPressed(KEY_Z)) state.mode = Mode_Zoom;
         if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
+        if (IsKeyPressed(KEY_C))
+        {
+            if (IsKeyDown(KEY_LEFT_CONTROL))
+            {
+                Image screenshot = take_screenshot(state);
+                copy_image(screenshot);
+                UnloadImage(screenshot);
+            }
+        }
+        if (IsKeyPressed(KEY_ENTER))
+        {
+            Image screenshot = take_screenshot(state);
+            save_screenshot(screenshot);
+            copy_image(screenshot);
+            UnloadImage(screenshot);
+            state.loop = false;
+        }
+
+        state.last_mouse_pos = mouse_pos;
+
+        BeginDrawing();
+
+        ClearBackground(BLACK);
 
         BeginMode2D(state.camera);
 
@@ -304,8 +451,6 @@ int main(int argc, char* argv[])
                        (Vector2){0, 0}, WHITE);
 
         EndMode2D();
-
-        state.last_mouse_pos = mouse_pos;
 
         EndDrawing();
     }

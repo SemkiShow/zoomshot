@@ -3,8 +3,8 @@
 ## v1.0.0
 
 - [x] Screenshot selection
-- [ ] Screenshot saving
-- [ ] Screenshot copying
+- [x] Screenshot saving
+- [x] Screenshot copying
 - [x] Pencil tool
 - [ ] Rectangle tool
 - [ ] Arrow tool
