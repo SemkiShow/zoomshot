@@ -31,12 +31,13 @@ typedef struct
     bool loop;
     Mode mode;
     Tool tool;
+    float tool_thickness;
+    Color tool_color;
     Camera2D camera;
     RenderTexture2D canvas;
     RenderTexture2D mask;
     Vector2 last_mouse_pos;
     Rectangle selection;
-    float tool_thickness;
 } State;
 
 #define CHECK_NULL(val)                                                                            \
@@ -99,6 +100,7 @@ State state_new()
     state.startup_loop = g_main_loop_new(NULL, FALSE);
     state.loop = true;
     state.tool_thickness = INITIAL_THICKNESS;
+    state.tool_color = RED;
     screenshot_mode(&state);
     return state;
 }
@@ -181,7 +183,15 @@ void pencil_tool(State* state)
     Vector2 last_world_mouse = GetScreenToWorld2D(state->last_mouse_pos, state->camera);
 
     BeginTextureMode(state->canvas);
-    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, RED);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    }
+
+    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+
     EndTextureMode();
 }
 
@@ -334,7 +344,6 @@ int main(int argc, char* argv[])
     flags |= FLAG_VSYNC_HINT;
     flags |= FLAG_FULLSCREEN_MODE;
     flags |= FLAG_WINDOW_UNDECORATED;
-    flags |= FLAG_WINDOW_TOPMOST;
     SetConfigFlags(flags);
 
     InitWindow(800, 600, "zoomshot");
@@ -411,32 +420,6 @@ int main(int argc, char* argv[])
 
         if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) move_tool(&state);
 
-        if (state.mode == Mode_Screenshot)
-        {
-            BeginTextureMode(state.mask);
-
-            ClearBackground(BLANK);
-            DrawRectangle(0, 0, state.mask.texture.width, state.mask.texture.height,
-                          ColorAlpha(GRAY, 0.75));
-
-            BeginBlendMode(BLEND_SUBTRACT_COLORS);
-            Rectangle selection = state.selection;
-            if (selection.width < 0)
-            {
-                selection.x += selection.width;
-                selection.width *= -1;
-            }
-            if (selection.height < 0)
-            {
-                selection.y += selection.height;
-                selection.height *= -1;
-            }
-            DrawRectangleRec(selection, (Color){255, 255, 255, 0});
-            EndBlendMode();
-
-            EndTextureMode();
-        }
-
         if (IsKeyPressed(KEY_ZERO)) reset_camera(&state);
         if (IsKeyPressed(KEY_S))
         {
@@ -461,6 +444,16 @@ int main(int argc, char* argv[])
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
         if (IsKeyPressed(KEY_E)) state.tool = Tool_Eraser;
+        if (IsKeyDown(KEY_LEFT_BRACKET))
+        {
+            state.tool_thickness -= THICKNESS_SPEED * GetFrameTime();
+            state.tool_thickness = fmaxf(0, state.tool_thickness);
+        }
+        if (IsKeyDown(KEY_RIGHT_BRACKET))
+        {
+            state.tool_thickness += THICKNESS_SPEED * GetFrameTime();
+            state.tool_thickness = fminf(MAX_THICKNESS, state.tool_thickness);
+        }
         if (IsKeyPressed(KEY_C))
         {
             if (IsKeyDown(KEY_LEFT_CONTROL))
@@ -477,6 +470,32 @@ int main(int argc, char* argv[])
             copy_image(screenshot);
             UnloadImage(screenshot);
             state.loop = false;
+        }
+
+        if (state.mode == Mode_Screenshot)
+        {
+            BeginTextureMode(state.mask);
+
+            ClearBackground(BLANK);
+            DrawRectangle(0, 0, state.mask.texture.width, state.mask.texture.height,
+                          ColorAlpha(GRAY, 0.75));
+
+            BeginBlendMode(BLEND_SUBTRACT_COLORS);
+            Rectangle selection = state.selection;
+            if (selection.width < 0)
+            {
+                selection.x += selection.width;
+                selection.width *= -1;
+            }
+            if (selection.height < 0)
+            {
+                selection.y += selection.height;
+                selection.height *= -1;
+            }
+            DrawRectangleRec(selection, (Color){255, 255, 255, 0});
+            EndBlendMode();
+
+            EndTextureMode();
         }
 
         state.last_mouse_pos = mouse_pos;

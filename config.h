@@ -6,6 +6,9 @@
 #define MIN_ZOOM 0.05f
 
 #define INITIAL_THICKNESS 3
+#define THICKNESS_SPEED 10
+#define MIN_THICKNESS 1
+#define MAX_THICKNESS 100
 
 #define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
 // %s is replaced with time in TIME_FORMAT format
