@@ -2,6 +2,8 @@
 #define NOB_EXPERIMENTAL_DELETE_OLD
 #include "nob.h"
 
+#include "config.h"
+
 void raylib(Nob_Cmd* cmd)
 {
     nob_cmd_append(cmd, "-I.", "-I./raylib-6.0_linux_amd64/include");
@@ -40,13 +42,15 @@ defer:
 
 int main(int argc, char* argv[])
 {
-    NOB_GO_REBUILD_URSELF(argc, argv);
+    NOB_GO_REBUILD_URSELF_PLUS(argc, argv, "config.h");
 
     Nob_Cmd cmd = {0};
     nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-o", "zoomshot");
     nob_cmd_append(&cmd, "main.c");
     raylib(&cmd);
+#ifndef USE_GRIM
     if (!libportal(&cmd)) return 1;
+#endif
     if (!nob_cmd_run(&cmd)) return 1;
 
     return 0;

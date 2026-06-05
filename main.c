@@ -1,10 +1,13 @@
 #include "config.h"
-#include <glib.h>
-#include <libportal/portal-helpers.h>
-#include <libportal/screenshot.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <stdio.h>
+
+#ifndef USE_GRIM
+#include <glib.h>
+#include <libportal/portal-helpers.h>
+#include <libportal/screenshot.h>
+#endif
 
 #define NOB_IMPLEMENTATION
 #include "nob.h"
@@ -34,7 +37,9 @@ typedef enum
 
 typedef struct
 {
+#ifndef USE_GRIM
     GMainLoop* startup_loop;
+#endif
     char* screenshot_filename;
     Texture screenshot;
 
@@ -81,15 +86,24 @@ void reset_camera(State* state)
         break;
     case Mode_Zoom:
     {
+        state->camera.zoom = 1.0f;
+        // Wait for GetMousePosition
+        while (Vector2Equals(GetMousePosition(), (Vector2){0, 0}))
+        {
+            BeginDrawing();
+            ClearBackground(BLANK);
+
+            BeginMode2D(state->camera);
+            DrawTexture(state->screenshot, 0, 0, WHITE);
+            EndMode2D();
+
+            EndDrawing();
+        }
+
+        Vector2 mouse_pos = GetMousePosition();
+        state->camera.target = mouse_pos;
+        state->camera.offset = mouse_pos;
         state->camera.zoom = INITIAL_ZOOM;
-        state->camera.target = (Vector2){
-            GetRenderWidth() / INITIAL_ZOOM,
-            GetRenderHeight() / INITIAL_ZOOM,
-        };
-        state->camera.offset = (Vector2){
-            GetRenderWidth() / INITIAL_ZOOM,
-            GetRenderHeight() / INITIAL_ZOOM,
-        };
     }
     break;
     }
@@ -116,7 +130,9 @@ void zoom_mode(State* state)
 State state_new()
 {
     State state = {0};
+#ifndef USE_GRIM
     state.startup_loop = g_main_loop_new(NULL, FALSE);
+#endif
     state.loop = true;
     state.tool_thickness = INITIAL_THICKNESS;
     state.tool_color = RED;
@@ -126,6 +142,7 @@ State state_new()
     return state;
 }
 
+#ifndef USE_GRIM
 static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpointer user_data)
 {
     XdpPortal* portal = XDP_PORTAL(source_object);
@@ -158,6 +175,31 @@ defer:
     if (uri) g_free(uri);
     if (filename) g_free(filename);
     if (state->startup_loop) g_main_loop_quit(state->startup_loop);
+}
+#endif
+
+void get_screen(State* state)
+{
+    CHECK_NULL(state);
+
+#ifdef USE_GRIM
+#define OUT_FILENAME "/tmp/out.png"
+    system("grim " OUT_FILENAME);
+    state->screenshot_filename = OUT_FILENAME;
+#undef OUT_FILENAME
+#else
+    XdpPortal* portal = xdp_portal_new();
+    xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, false, on_screenshot_ready,
+                               &state);
+
+    // Wait for the screenshot to be taken
+    g_main_loop_run(state->startup_loop);
+    g_main_loop_unref(state->startup_loop);
+    state->startup_loop = NULL;
+    g_object_unref(portal);
+#endif
+
+    state->screenshot = LoadTexture(state->screenshot_filename);
 }
 
 void usage(const char* program)
@@ -278,8 +320,16 @@ void eraser_tool(State* state)
 
     BeginTextureMode(state->canvas);
     BeginBlendMode(BLEND_SUBTRACT_COLORS);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
+    }
+
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness,
                (Color){255, 255, 255, 0});
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
+
     EndBlendMode();
     EndTextureMode();
 }
@@ -485,7 +535,6 @@ int main(int argc, char* argv[])
     State state = state_new();
 
     unsigned int flags = 0;
-    flags |= FLAG_VSYNC_HINT;
     flags |= FLAG_FULLSCREEN_MODE;
     flags |= FLAG_WINDOW_UNDECORATED;
     flags |= FLAG_WINDOW_TRANSPARENT;
@@ -493,21 +542,13 @@ int main(int argc, char* argv[])
 
     InitWindow(800, 600, "zoomshot");
 
-    XdpPortal* portal = xdp_portal_new();
-    xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, false, on_screenshot_ready,
-                               &state);
+    get_screen(&state);
 
-    // Wait for the screenshot to be taken
-    g_main_loop_run(state.startup_loop);
-    g_main_loop_unref(state.startup_loop);
-    state.startup_loop = NULL;
-
-    ClearWindowState(FLAG_WINDOW_TRANSPARENT);
-
-    state.screenshot = LoadTexture(state.screenshot_filename);
     state.canvas = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
     state.mask = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
     save_action(&state);
+
+    SetWindowState(FLAG_VSYNC_HINT);
 
     const char* program = nob_shift_args(&argc, &argv);
     while (argc)
@@ -760,7 +801,6 @@ int main(int argc, char* argv[])
         EndDrawing();
     }
 
-    g_object_unref(portal);
     CloseWindow();
 
     return 0;

@@ -1,6 +1,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+// #define USE_GRIM // This only works on wlroots
+
 #define MAX_UNDO 50
 
 #define MOUSE_WHEEL_SENSITIVITY 1.1
