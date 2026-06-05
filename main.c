@@ -5,6 +5,7 @@
 #include <libportal/types.h>
 #include <math.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <stdio.h>
 
 #define NOB_IMPLEMENTATION
@@ -16,6 +17,8 @@ typedef struct
     Texture screenshot;
     char* filename;
     float zoom;
+    Vector2 offset;
+    Vector2 last_mouse_pos;
 } State;
 
 State state_new()
@@ -25,6 +28,8 @@ State state_new()
         .screenshot = {0},
         .filename = NULL,
         .zoom = 1,
+        .offset = {0},
+        .last_mouse_pos = {0},
     };
 }
 
@@ -96,16 +101,24 @@ int main(void)
         state.zoom += wheel * MOUSE_SENSITIVITY;
         state.zoom = fmaxf(-state.screenshot.height, state.zoom);
 
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+        {
+            state.offset =
+                Vector2Add(state.offset, Vector2Subtract(GetMousePosition(), state.last_mouse_pos));
+        }
+
         const float aspectRatio = (float)state.screenshot.width / state.screenshot.height;
         DrawTexturePro(state.screenshot,
                        (Rectangle){0, 0, state.screenshot.width, state.screenshot.height},
                        (Rectangle){
-                           0,
-                           0,
+                           state.offset.x,
+                           state.offset.y,
                            state.screenshot.width + state.zoom * aspectRatio,
                            state.screenshot.height + state.zoom,
                        },
                        (Vector2){0, 0}, 0, WHITE);
+
+        state.last_mouse_pos = GetMousePosition();
 
         EndDrawing();
     }
