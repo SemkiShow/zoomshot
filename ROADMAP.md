@@ -9,7 +9,7 @@
 - [ ] Rectangle tool
 - [ ] Arrow tool
 - [ ] Pixelate tool
-- [ ] Eraser tool
+- [x] Eraser tool
 - [ ] Laser pointer tool
 - [ ] Color picker tool
 - [ ] Undo/redo

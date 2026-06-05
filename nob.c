@@ -23,7 +23,7 @@ bool libportal(Nob_Cmd* cmd)
     Nob_String_View flags_sv = nob_sb_to_sv(flags);
     flags_sv = nob_sv_trim(flags_sv);
     size_t mark = nob_temp_save();
-    while (flags_sv.count)
+    while (flags_sv.count > 0)
     {
         Nob_String_View flag = nob_sv_chop_by_delim(&flags_sv, ' ');
         nob_cmd_append(cmd, nob_temp_sv_to_cstr(flag));

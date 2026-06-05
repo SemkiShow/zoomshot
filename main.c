@@ -20,6 +20,7 @@ typedef enum
     Tool_Select,
     Tool_Move,
     Tool_Pencil,
+    Tool_Eraser,
 } Tool;
 
 typedef struct
@@ -35,6 +36,7 @@ typedef struct
     RenderTexture2D mask;
     Vector2 last_mouse_pos;
     Rectangle selection;
+    float tool_thickness;
 } State;
 
 #define CHECK_NULL(val)                                                                            \
@@ -96,6 +98,7 @@ State state_new()
     State state = {0};
     state.startup_loop = g_main_loop_new(NULL, FALSE);
     state.loop = true;
+    state.tool_thickness = INITIAL_THICKNESS;
     screenshot_mode(&state);
     return state;
 }
@@ -178,7 +181,23 @@ void pencil_tool(State* state)
     Vector2 last_world_mouse = GetScreenToWorld2D(state->last_mouse_pos, state->camera);
 
     BeginTextureMode(state->canvas);
-    DrawLineEx(last_world_mouse, current_world_mouse, PENCIL_THICCNESS, RED);
+    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, RED);
+    EndTextureMode();
+}
+
+void eraser_tool(State* state)
+{
+    CHECK_NULL(state);
+
+    Vector2 mouse_pos = GetMousePosition();
+    Vector2 current_world_mouse = GetScreenToWorld2D(mouse_pos, state->camera);
+    Vector2 last_world_mouse = GetScreenToWorld2D(state->last_mouse_pos, state->camera);
+
+    BeginTextureMode(state->canvas);
+    BeginBlendMode(BLEND_SUBTRACT_COLORS);
+    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness,
+               (Color){255, 255, 255, 0});
+    EndBlendMode();
     EndTextureMode();
 }
 
@@ -383,6 +402,9 @@ int main(int argc, char* argv[])
                 case Tool_Pencil:
                     pencil_tool(&state);
                     break;
+                case Tool_Eraser:
+                    eraser_tool(&state);
+                    break;
                 }
             }
         }
@@ -438,6 +460,7 @@ int main(int argc, char* argv[])
         if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
+        if (IsKeyPressed(KEY_E)) state.tool = Tool_Eraser;
         if (IsKeyPressed(KEY_C))
         {
             if (IsKeyDown(KEY_LEFT_CONTROL))

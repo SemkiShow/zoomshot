@@ -5,7 +5,7 @@
 #define INITIAL_ZOOM 2.0f
 #define MIN_ZOOM 0.05f
 
-#define PENCIL_THICCNESS 3
+#define INITIAL_THICKNESS 3
 
 #define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
 // %s is replaced with time in TIME_FORMAT format
