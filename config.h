@@ -1,7 +1,9 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-// #define USE_GRIM // This only works on wlroots
+#define CAPTURE_METHOD_PORTAL 0
+#define CAPTURE_METHOD_GRIM 1
+#define CAPTURE_METHOD CAPTURE_METHOD_GRIM
 
 #define MAX_UNDO 50
 

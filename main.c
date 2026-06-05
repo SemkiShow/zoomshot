@@ -3,7 +3,7 @@
 #include <raymath.h>
 #include <stdio.h>
 
-#ifndef USE_GRIM
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
 #include <glib.h>
 #include <libportal/portal-helpers.h>
 #include <libportal/screenshot.h>
@@ -37,7 +37,7 @@ typedef enum
 
 typedef struct
 {
-#ifndef USE_GRIM
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
     GMainLoop* startup_loop;
 #endif
     char* screenshot_filename;
@@ -130,7 +130,7 @@ void zoom_mode(State* state)
 State state_new()
 {
     State state = {0};
-#ifndef USE_GRIM
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
     state.startup_loop = g_main_loop_new(NULL, FALSE);
 #endif
     state.loop = true;
@@ -142,7 +142,7 @@ State state_new()
     return state;
 }
 
-#ifndef USE_GRIM
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
 static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpointer user_data)
 {
     XdpPortal* portal = XDP_PORTAL(source_object);
@@ -182,21 +182,21 @@ void get_screen(State* state)
 {
     CHECK_NULL(state);
 
-#ifdef USE_GRIM
-#define OUT_FILENAME "/tmp/out.png"
-    system("grim " OUT_FILENAME);
-    state->screenshot_filename = OUT_FILENAME;
-#undef OUT_FILENAME
-#else
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
     XdpPortal* portal = xdp_portal_new();
     xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, false, on_screenshot_ready,
-                               &state);
+                               state);
 
     // Wait for the screenshot to be taken
     g_main_loop_run(state->startup_loop);
     g_main_loop_unref(state->startup_loop);
     state->startup_loop = NULL;
     g_object_unref(portal);
+#elif CAPTURE_METHOD == CAPTURE_METHOD_GRIM
+#define OUT_FILENAME "/tmp/out.png"
+    system("grim " OUT_FILENAME);
+    state->screenshot_filename = OUT_FILENAME;
+#undef OUT_FILENAME
 #endif
 
     state->screenshot = LoadTexture(state->screenshot_filename);

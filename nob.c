@@ -48,8 +48,9 @@ int main(int argc, char* argv[])
     nob_cmd_append(&cmd, "cc", "-Wall", "-Wextra", "-o", "zoomshot");
     nob_cmd_append(&cmd, "main.c");
     raylib(&cmd);
-#ifndef USE_GRIM
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
     if (!libportal(&cmd)) return 1;
+    nob_log(NOB_INFO, "Using portal");
 #endif
     if (!nob_cmd_run(&cmd)) return 1;
 
