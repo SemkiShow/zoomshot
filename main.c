@@ -25,14 +25,14 @@ typedef enum
 typedef struct
 {
     GMainLoop* startup_loop;
+    char* screenshot_filename;
     Texture screenshot;
-    char* filename;
     bool loop;
     Mode mode;
     Tool tool;
+    Camera2D camera;
     RenderTexture2D canvas;
     RenderTexture2D mask;
-    Camera2D camera;
     Vector2 last_mouse_pos;
     Rectangle selection;
 } State;
@@ -100,7 +100,7 @@ static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpoin
         goto defer;
     }
 
-    state->filename = strdup(filename);
+    state->screenshot_filename = strdup(filename);
 
 defer:
     if (uri) g_free(uri);
@@ -206,8 +206,8 @@ Image take_screenshot(State state)
                    (Rectangle){
                        selection.x,
                        -selection.y,
-                       (float)state.canvas.texture.width,
-                       (float)-state.canvas.texture.height,
+                       state.canvas.texture.width,
+                       -state.canvas.texture.height,
                    },
                    (Vector2){0, 0}, WHITE);
 
@@ -318,7 +318,7 @@ int main(int argc, char* argv[])
 
     InitWindow(800, 600, "zoomshot");
 
-    state.screenshot = LoadTexture(state.filename);
+    state.screenshot = LoadTexture(state.screenshot_filename);
     state.canvas = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
     state.mask = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
 
@@ -436,19 +436,22 @@ int main(int argc, char* argv[])
                        (Rectangle){
                            0,
                            0,
-                           (float)state.canvas.texture.width,
-                           (float)-state.canvas.texture.height,
+                           state.canvas.texture.width,
+                           -state.canvas.texture.height,
                        },
                        (Vector2){0, 0}, WHITE);
 
-        DrawTextureRec(state.mask.texture,
-                       (Rectangle){
-                           0,
-                           0,
-                           (float)state.mask.texture.width,
-                           (float)-state.mask.texture.height,
-                       },
-                       (Vector2){0, 0}, WHITE);
+        if (state.mode == Mode_Screenshot)
+        {
+            DrawTextureRec(state.mask.texture,
+                           (Rectangle){
+                               0,
+                               0,
+                               state.mask.texture.width,
+                               -state.mask.texture.height,
+                           },
+                           (Vector2){0, 0}, WHITE);
+        }
 
         EndMode2D();
 
