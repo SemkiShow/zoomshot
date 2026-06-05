@@ -275,6 +275,12 @@ int main(int argc, char* argv[])
             EndTextureMode();
         }
 
+        if (IsKeyPressed(KEY_S)) state.mode = Mode_Screenshot;
+        if (IsKeyPressed(KEY_Z)) state.mode = Mode_Zoom;
+        if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
+        if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
+        if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
+
         BeginMode2D(state.camera);
 
         DrawTexture(state.screenshot, 0, 0, WHITE);
