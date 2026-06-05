@@ -2,7 +2,7 @@
 
 ## v1.0.0
 
-- [ ] Screenshot selection
+- [x] Screenshot selection
 - [ ] Screenshot saving
 - [ ] Screenshot copying
 - [x] Pencil tool
