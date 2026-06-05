@@ -22,6 +22,7 @@ typedef enum
     Tool_Pencil,
     Tool_Eraser,
     Tool_Rectangle,
+    Tool_LaserPointer,
 } Tool;
 
 typedef struct
@@ -279,6 +280,8 @@ void rectangle_tool(State* state)
     Vector2 mouse_pos = GetMousePosition();
     Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
 
+    BeginMode2D(state->camera);
+
     Rectangle rec = {
         state->tool_start.x,
         state->tool_start.y,
@@ -286,6 +289,29 @@ void rectangle_tool(State* state)
         mouse_world_pos.y - state->tool_start.y,
     };
     DrawRectangleRec(fix_rec(rec), state->tool_color);
+
+    EndMode2D();
+}
+
+void laser_pointer_tool(State* state)
+{
+    CHECK_NULL(state);
+
+    Vector2 mouse_pos = GetMousePosition();
+    Vector2 current_world_mouse = GetScreenToWorld2D(mouse_pos, state->camera);
+    Vector2 last_world_mouse = GetScreenToWorld2D(state->last_mouse_pos, state->camera);
+
+    BeginMode2D(state->camera);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
+    }
+
+    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+
+    EndMode2D();
 }
 
 Image take_screenshot(State state)
@@ -526,6 +552,9 @@ int main(int argc, char* argv[])
                 case Tool_Rectangle:
                     rectangle_tool(&state);
                     break;
+                case Tool_LaserPointer:
+                    laser_pointer_tool(&state);
+                    break;
                 }
             }
         }
@@ -538,6 +567,7 @@ int main(int argc, char* argv[])
                 state.can_move_selection = true;
                 break;
             case Tool_Move:
+            case Tool_LaserPointer:
                 break;
             case Tool_Rectangle:
                 BeginTextureMode(state.canvas);
@@ -571,7 +601,7 @@ int main(int argc, char* argv[])
             else
             {
                 state.mode = Mode_Screenshot;
-                state.tool = Tool_Select;
+                if (state.tool == Tool_Move) state.tool = Tool_Select;
             }
         }
         if (IsKeyPressed(KEY_Z))
@@ -586,7 +616,7 @@ int main(int argc, char* argv[])
             else
             {
                 state.mode = Mode_Zoom;
-                state.tool = Tool_Move;
+                if (state.tool == Tool_Select) state.tool = Tool_Move;
             }
         }
         if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
@@ -594,6 +624,7 @@ int main(int argc, char* argv[])
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
         if (IsKeyPressed(KEY_E)) state.tool = Tool_Eraser;
         if (IsKeyPressed(KEY_R)) state.tool = Tool_Rectangle;
+        if (IsKeyPressed(KEY_L)) state.tool = Tool_LaserPointer;
         if (IsKeyDown(KEY_LEFT_BRACKET))
         {
             state.tool_thickness -= THICKNESS_SPEED * GetFrameTime();
