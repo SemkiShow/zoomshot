@@ -27,6 +27,7 @@ typedef enum
     Tool_Rectangle,
     Tool_LaserPointer,
     Tool_Pixelate,
+    Tool_ColorPicker,
 } Tool;
 
 typedef enum
@@ -45,6 +46,8 @@ typedef struct
 
     bool loop;
     Mode mode;
+    Camera2D camera;
+    Vector2 last_mouse_pos;
     Tool tool;
     Vector2 tool_start;
     float tool_thickness;
@@ -52,8 +55,7 @@ typedef struct
     Rectangle selection;
     SelectState select_state;
     size_t pixelate_seed;
-    Camera2D camera;
-    Vector2 last_mouse_pos;
+    double color_picker_timer;
 
     RenderTexture2D canvas;
     RenderTexture2D mask;
@@ -227,6 +229,16 @@ Rectangle fix_rec(Rectangle rec)
     return rec;
 }
 
+Color invert_color(Color color)
+{
+    return (Color){
+        255 - color.r,
+        255 - color.g,
+        255 - color.b,
+        color.a,
+    };
+}
+
 void save_action(State* state)
 {
     CHECK_NULL(state);
@@ -299,11 +311,7 @@ void pencil_tool(State* state)
 
     BeginTextureMode(state->canvas);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-    {
-        DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
-    }
-
+    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
     DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
 
@@ -321,11 +329,7 @@ void eraser_tool(State* state)
     BeginTextureMode(state->canvas);
     BeginBlendMode(BLEND_SUBTRACT_COLORS);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-    {
-        DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
-    }
-
+    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness,
                (Color){255, 255, 255, 0});
     DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
@@ -373,11 +377,7 @@ void laser_pointer_tool(State* state)
 
     BeginMode2D(state->camera);
 
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-    {
-        DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
-    }
-
+    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
     DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
 
@@ -424,6 +424,31 @@ void pixelate_tool(State* state, bool write)
     }
     else
         EndMode2D();
+}
+
+void color_picker_tool(State* state)
+{
+    CHECK_NULL(state);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+    {
+        Image image = LoadImageFromTexture(state->screenshot);
+        ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
+        Vector2 mouse_pos = GetMousePosition();
+        Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
+
+        Clamp(mouse_world_pos.x, 0, image.width);
+        Clamp(mouse_world_pos.y, 0, image.height);
+
+        Color* colors = LoadImageColors(image);
+
+        state->tool_color = colors[(int)mouse_world_pos.y * image.width + (int)mouse_world_pos.x];
+
+        MemFree(colors);
+
+        UnloadImage(image);
+    }
 }
 
 Image take_screenshot(State state)
@@ -669,6 +694,9 @@ int main(int argc, char* argv[])
                 case Tool_Pixelate:
                     pixelate_tool(&state, false);
                     break;
+                case Tool_ColorPicker:
+                    color_picker_tool(&state);
+                    break;
                 }
             }
         }
@@ -680,6 +708,7 @@ int main(int argc, char* argv[])
             case Tool_Select:
             case Tool_Move:
             case Tool_LaserPointer:
+            case Tool_ColorPicker:
                 break;
             case Tool_Pencil:
             case Tool_Eraser:
@@ -743,13 +772,19 @@ int main(int argc, char* argv[])
         {
             state.tool_thickness -= THICKNESS_SPEED * GetFrameTime();
             state.tool_thickness = fmaxf(0, state.tool_thickness);
-            DrawCircleLinesV(mouse_pos, state.tool_thickness / 2, state.tool_color);
+
+            BeginMode2D(state.camera);
+            DrawCircleLinesV(mouse_world_pos, state.tool_thickness / 2, state.tool_color);
+            EndMode2D();
         }
         if (IsKeyDown(KEY_RIGHT_BRACKET))
         {
             state.tool_thickness += THICKNESS_SPEED * GetFrameTime();
             state.tool_thickness = fminf(MAX_THICKNESS, state.tool_thickness);
-            DrawCircleLinesV(mouse_pos, state.tool_thickness / 2, state.tool_color);
+
+            BeginMode2D(state.camera);
+            DrawCircleLinesV(mouse_world_pos, state.tool_thickness / 2, state.tool_color);
+            EndMode2D();
         }
         if (IsKeyPressed(KEY_C))
         {
@@ -758,6 +793,10 @@ int main(int argc, char* argv[])
                 Image screenshot = take_screenshot(state);
                 copy_image(screenshot);
                 UnloadImage(screenshot);
+            }
+            else
+            {
+                state.tool = Tool_ColorPicker;
             }
         }
         if (IsKeyPressed(KEY_ENTER))
@@ -797,6 +836,34 @@ int main(int argc, char* argv[])
                        (Vector2){0, 0}, WHITE);
 
         EndMode2D();
+
+        if (state.tool == Tool_ColorPicker)
+        {
+            size_t mark = nob_temp_save();
+            const char* label = NULL;
+            if (state.color_picker_timer > 0)
+            {
+                label = "Copied!";
+                state.color_picker_timer -= GetFrameTime();
+            }
+            else
+            {
+                label = nob_temp_sprintf("#%06x", ColorToInt(state.tool_color));
+            }
+            Rectangle copyButton = {0, 0, 0, 30};
+            copyButton.width = MeasureText(label, copyButton.height);
+
+            if (CheckCollisionPointRec(mouse_pos, copyButton))
+            {
+                SetClipboardText(label);
+                state.color_picker_timer = COLOR_PICKER_POPUP_DURATION;
+            }
+
+            DrawRectangleRec(copyButton, state.tool_color);
+            DrawText(label, 0, 0, copyButton.height, invert_color(state.tool_color));
+
+            nob_temp_rewind(mark);
+        }
 
         EndDrawing();
     }

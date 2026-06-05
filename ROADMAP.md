@@ -11,7 +11,7 @@
 - [x] Pixelate tool
 - [x] Eraser tool
 - [x] Laser pointer tool
-- [ ] Color picker tool
+- [x] Color picker tool
 - [x] Undo/redo
 - [ ] Toolbar
 - [x] Improve screenshot speed

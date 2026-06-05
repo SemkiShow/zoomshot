@@ -3,7 +3,7 @@
 
 #define CAPTURE_METHOD_PORTAL 0
 #define CAPTURE_METHOD_GRIM 1
-#define CAPTURE_METHOD CAPTURE_METHOD_GRIM
+#define CAPTURE_METHOD CAPTURE_METHOD_PORTAL
 
 #define MAX_UNDO 50
 
@@ -17,6 +17,7 @@
 #define MAX_THICKNESS 100
 
 #define PIXELATE_SIZE 5
+#define COLOR_PICKER_POPUP_DURATION 1
 
 #define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
 // %s is replaced with time in TIME_FORMAT format. SCREENSHOT_PATH is prefixed with $HOME/ on save
