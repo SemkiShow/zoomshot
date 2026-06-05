@@ -273,14 +273,17 @@ void eraser_tool(State* state)
     EndTextureMode();
 }
 
-void rectangle_tool(State* state)
+void rectangle_tool(State* state, bool write)
 {
     CHECK_NULL(state);
 
     Vector2 mouse_pos = GetMousePosition();
     Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
 
-    BeginMode2D(state->camera);
+    if (write)
+        BeginTextureMode(state->canvas);
+    else
+        BeginMode2D(state->camera);
 
     Rectangle rec = {
         state->tool_start.x,
@@ -290,7 +293,13 @@ void rectangle_tool(State* state)
     };
     DrawRectangleRec(fix_rec(rec), state->tool_color);
 
-    EndMode2D();
+    if (write)
+    {
+        EndTextureMode();
+        save_action(state);
+    }
+    else
+        EndMode2D();
 }
 
 void laser_pointer_tool(State* state)
@@ -550,7 +559,7 @@ int main(int argc, char* argv[])
                     eraser_tool(&state);
                     break;
                 case Tool_Rectangle:
-                    rectangle_tool(&state);
+                    rectangle_tool(&state, false);
                     break;
                 case Tool_LaserPointer:
                     laser_pointer_tool(&state);
@@ -569,20 +578,12 @@ int main(int argc, char* argv[])
             case Tool_Move:
             case Tool_LaserPointer:
                 break;
-            case Tool_Rectangle:
-                BeginTextureMode(state.canvas);
-                Rectangle rec = {
-                    state.tool_start.x,
-                    state.tool_start.y,
-                    mouse_world_pos.x - state.tool_start.x,
-                    mouse_world_pos.y - state.tool_start.y,
-                };
-                DrawRectangleRec(fix_rec(rec), state.tool_color);
-                EndTextureMode();
-                // fallthrough
             case Tool_Pencil:
             case Tool_Eraser:
                 save_action(&state);
+                break;
+            case Tool_Rectangle:
+                rectangle_tool(&state, true);
                 break;
             }
         }
