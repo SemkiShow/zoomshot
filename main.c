@@ -272,9 +272,10 @@ void eraser_tool(State* state)
     Vector2 current_world_mouse = GetScreenToWorld2D(mouse_pos, state->camera);
     Vector2 last_world_mouse = GetScreenToWorld2D(state->last_mouse_pos, state->camera);
 
-    BeginTextureMode(state->mask);
+    BeginTextureMode(state->canvas);
     BeginBlendMode(BLEND_SUBTRACT_COLORS);
-    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
+    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness,
+               (Color){255, 255, 255, 0});
     EndBlendMode();
     EndTextureMode();
 }
