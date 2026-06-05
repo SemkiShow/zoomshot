@@ -12,8 +12,10 @@
 #define MIN_THICKNESS 1
 #define MAX_THICKNESS 100
 
+#define PIXELATE_SIZE 5
+
 #define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
-// %s is replaced with time in TIME_FORMAT format
+// %s is replaced with time in TIME_FORMAT format. SCREENSHOT_PATH is prefixed with $HOME/ on save
 #define SCREENSHOT_PATH "Pictures/Screenshots/%s.png"
 
 #endif // CONFIG_H_

@@ -8,7 +8,7 @@
 - [x] Pencil tool
 - [x] Rectangle tool
 - [ ] Arrow tool
-- [ ] Pixelate tool
+- [x] Pixelate tool
 - [x] Eraser tool
 - [x] Laser pointer tool
 - [ ] Color picker tool

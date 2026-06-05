@@ -23,6 +23,7 @@ typedef enum
     Tool_Eraser,
     Tool_Rectangle,
     Tool_LaserPointer,
+    Tool_Pixelate,
 } Tool;
 
 typedef enum
@@ -43,10 +44,11 @@ typedef struct
     Vector2 tool_start;
     float tool_thickness;
     Color tool_color;
-    Camera2D camera;
-    Vector2 last_mouse_pos;
     Rectangle selection;
     SelectState select_state;
+    size_t pixelate_seed;
+    Camera2D camera;
+    Vector2 last_mouse_pos;
 
     RenderTexture2D canvas;
     RenderTexture2D mask;
@@ -118,6 +120,8 @@ State state_new()
     state.loop = true;
     state.tool_thickness = INITIAL_THICKNESS;
     state.tool_color = RED;
+    state.pixelate_seed = time(0);
+    SetRandomSeed(state.pixelate_seed);
     screenshot_mode(&state);
     return state;
 }
@@ -330,6 +334,48 @@ void laser_pointer_tool(State* state)
     EndMode2D();
 }
 
+void pixelate_tool(State* state, bool write)
+{
+    CHECK_NULL(state);
+
+    Vector2 mouse_pos = GetMousePosition();
+    Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
+
+    if (write)
+        BeginTextureMode(state->canvas);
+    else
+        BeginMode2D(state->camera);
+
+    Rectangle rec = {
+        state->tool_start.x,
+        state->tool_start.y,
+        mouse_world_pos.x - state->tool_start.x,
+        mouse_world_pos.y - state->tool_start.y,
+    };
+    rec = fix_rec(rec);
+    SetRandomSeed(state->pixelate_seed);
+    for (float y = rec.y; y < rec.y + rec.height; y += PIXELATE_SIZE)
+    {
+        float height = y + PIXELATE_SIZE;
+        if (y + height > rec.height) height = rec.y + rec.height - y;
+        for (float x = rec.x; x < rec.x + rec.width; x += PIXELATE_SIZE)
+        {
+            float width = x + PIXELATE_SIZE;
+            if (x + width > rec.width) width = rec.x + rec.width - x;
+            int color = GetRandomValue(0, 100);
+            DrawRectangle(x, y, width, height, (Color){color, color, color, 255});
+        }
+    }
+
+    if (write)
+    {
+        EndTextureMode();
+        save_action(state);
+    }
+    else
+        EndMode2D();
+}
+
 Image take_screenshot(State state)
 {
     Rectangle selection = fix_rec(state.selection);
@@ -438,8 +484,17 @@ int main(int argc, char* argv[])
 {
     State state = state_new();
 
+    unsigned int flags = 0;
+    flags |= FLAG_VSYNC_HINT;
+    flags |= FLAG_FULLSCREEN_MODE;
+    flags |= FLAG_WINDOW_UNDECORATED;
+    flags |= FLAG_WINDOW_TRANSPARENT;
+    SetConfigFlags(flags);
+
+    InitWindow(800, 600, "zoomshot");
+
     XdpPortal* portal = xdp_portal_new();
-    xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, NULL, on_screenshot_ready,
+    xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, false, on_screenshot_ready,
                                &state);
 
     // Wait for the screenshot to be taken
@@ -447,13 +502,7 @@ int main(int argc, char* argv[])
     g_main_loop_unref(state.startup_loop);
     state.startup_loop = NULL;
 
-    unsigned int flags = 0;
-    flags |= FLAG_VSYNC_HINT;
-    flags |= FLAG_FULLSCREEN_MODE;
-    flags |= FLAG_WINDOW_UNDECORATED;
-    SetConfigFlags(flags);
-
-    InitWindow(800, 600, "zoomshot");
+    ClearWindowState(FLAG_WINDOW_TRANSPARENT);
 
     state.screenshot = LoadTexture(state.screenshot_filename);
     state.canvas = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
@@ -530,12 +579,7 @@ int main(int argc, char* argv[])
                 else
                 {
                     state.select_state = SelectState_Resize;
-                    state.selection = (Rectangle){
-                        mouse_world_pos.x,
-                        mouse_world_pos.y,
-                        0,
-                        0,
-                    };
+                    state.selection = (Rectangle){mouse_world_pos.x, mouse_world_pos.y, 0, 0};
                 }
             }
         }
@@ -581,6 +625,9 @@ int main(int argc, char* argv[])
                 case Tool_LaserPointer:
                     laser_pointer_tool(&state);
                     break;
+                case Tool_Pixelate:
+                    pixelate_tool(&state, false);
+                    break;
                 }
             }
         }
@@ -599,6 +646,11 @@ int main(int argc, char* argv[])
                 break;
             case Tool_Rectangle:
                 rectangle_tool(&state, true);
+                break;
+            case Tool_Pixelate:
+                pixelate_tool(&state, true);
+                state.pixelate_seed = time(0);
+                SetRandomSeed(state.pixelate_seed);
                 break;
             }
         }
@@ -635,21 +687,28 @@ int main(int argc, char* argv[])
                 if (state.tool == Tool_Select) state.tool = Tool_Move;
             }
         }
-        if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
+        if (IsKeyPressed(KEY_V))
+        {
+            state.mode = Mode_Screenshot;
+            state.tool = Tool_Select;
+        }
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
         if (IsKeyPressed(KEY_E)) state.tool = Tool_Eraser;
         if (IsKeyPressed(KEY_R)) state.tool = Tool_Rectangle;
         if (IsKeyPressed(KEY_L)) state.tool = Tool_LaserPointer;
+        if (IsKeyPressed(KEY_X)) state.tool = Tool_Pixelate;
         if (IsKeyDown(KEY_LEFT_BRACKET))
         {
             state.tool_thickness -= THICKNESS_SPEED * GetFrameTime();
             state.tool_thickness = fmaxf(0, state.tool_thickness);
+            DrawCircleLinesV(mouse_pos, state.tool_thickness / 2, state.tool_color);
         }
         if (IsKeyDown(KEY_RIGHT_BRACKET))
         {
             state.tool_thickness += THICKNESS_SPEED * GetFrameTime();
             state.tool_thickness = fminf(MAX_THICKNESS, state.tool_thickness);
+            DrawCircleLinesV(mouse_pos, state.tool_thickness / 2, state.tool_color);
         }
         if (IsKeyPressed(KEY_C))
         {
