@@ -3,7 +3,6 @@
 #include <libportal/portal-helpers.h>
 #include <libportal/screenshot.h>
 #include <libportal/types.h>
-#include <math.h>
 #include <raylib.h>
 #include <raymath.h>
 #include <stdio.h>
@@ -16,8 +15,7 @@ typedef struct
     GMainLoop* startup_loop;
     Texture screenshot;
     char* filename;
-    float zoom;
-    Vector2 offset;
+    Camera2D camera;
     Vector2 last_mouse_pos;
 } State;
 
@@ -27,8 +25,10 @@ State state_new()
         .startup_loop = g_main_loop_new(NULL, FALSE),
         .screenshot = {0},
         .filename = NULL,
-        .zoom = 1,
-        .offset = {0},
+        .camera =
+            (Camera2D){
+                .zoom = 1,
+            },
         .last_mouse_pos = {0},
     };
 }
@@ -97,28 +97,30 @@ int main(void)
 
         ClearBackground(BLACK);
 
+        Vector2 mouse_pos = GetMousePosition();
+
         float wheel = GetMouseWheelMove();
-        state.zoom += wheel * MOUSE_SENSITIVITY;
-        state.zoom = fmaxf(-state.screenshot.height, state.zoom);
+        if (wheel != 0.0f)
+        {
+            Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state.camera);
+            state.camera.target = mouse_world_pos;
+            state.camera.offset = mouse_pos;
+            state.camera.zoom += wheel * MOUSE_WHEEL_SENSITIVITY;
+            if (state.camera.zoom < MIN_ZOOM) state.camera.zoom = MIN_ZOOM;
+        }
 
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
-            state.offset =
-                Vector2Add(state.offset, Vector2Subtract(GetMousePosition(), state.last_mouse_pos));
+            Vector2 delta = Vector2Subtract(mouse_pos, state.last_mouse_pos);
+            state.camera.target.x -= delta.x / state.camera.zoom;
+            state.camera.target.y -= delta.y / state.camera.zoom;
         }
 
-        const float aspectRatio = (float)state.screenshot.width / state.screenshot.height;
-        DrawTexturePro(state.screenshot,
-                       (Rectangle){0, 0, state.screenshot.width, state.screenshot.height},
-                       (Rectangle){
-                           state.offset.x,
-                           state.offset.y,
-                           state.screenshot.width + state.zoom * aspectRatio,
-                           state.screenshot.height + state.zoom,
-                       },
-                       (Vector2){0, 0}, 0, WHITE);
+        BeginMode2D(state.camera);
+        DrawTexture(state.screenshot, 0, 0, WHITE);
+        EndMode2D();
 
-        state.last_mouse_pos = GetMousePosition();
+        state.last_mouse_pos = mouse_pos;
 
         EndDrawing();
     }
