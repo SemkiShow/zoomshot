@@ -16,3 +16,4 @@
 - [x] Undo/redo
 - [ ] Toolbar
 - [x] Improve screenshot speed
+- [ ] Resize selection

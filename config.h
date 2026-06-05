@@ -2,7 +2,7 @@
 #define CONFIG_H_
 
 #define CAPTURE_METHOD_PORTAL 0
-#define CAPTURE_METHOD_GRIM 1
+#define CAPTURE_METHOD_GRIM 1 // Works only on wlroots
 #define CAPTURE_METHOD CAPTURE_METHOD_PORTAL
 
 #define MAX_UNDO 50

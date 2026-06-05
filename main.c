@@ -182,11 +182,11 @@ defer:
 }
 #endif
 
-void get_screen(State* state)
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
+void get_screen_portal(State* state)
 {
     CHECK_NULL(state);
 
-#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
     XdpPortal* portal = xdp_portal_new();
     xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, false, on_screenshot_ready,
                                state);
@@ -196,14 +196,82 @@ void get_screen(State* state)
     g_main_loop_unref(state->startup_loop);
     state->startup_loop = NULL;
     g_object_unref(portal);
-#elif CAPTURE_METHOD == CAPTURE_METHOD_GRIM
-#define OUT_FILENAME "/tmp/out.png"
-    system("grim " OUT_FILENAME);
-    state->screenshot_filename = OUT_FILENAME;
-#undef OUT_FILENAME
-#endif
 
     state->screenshot = LoadTexture(state->screenshot_filename);
+}
+#endif
+
+#if CAPTURE_METHOD == CAPTURE_METHOD_GRIM
+void get_screen_grim(State* state)
+{
+    CHECK_NULL(state);
+
+    FILE* pipe = popen("grim -t ppm -", "r");
+    unsigned char* buffer = NULL;
+    if (!pipe)
+    {
+        nob_log(NOB_ERROR, "Failed to run grim pipe");
+        goto defer;
+    }
+
+    char magic[16];
+    int width = 0, height = 0, max_color = 0;
+
+    if (fscanf(pipe, "%15s\n%d %d\n%d\n", magic, &width, &height, &max_color) != 4)
+    {
+        nob_log(NOB_ERROR, "Failed to parse PPM header from grim");
+        goto defer;
+    }
+
+    if (strcmp(magic, "P6") != 0)
+    {
+        nob_log(NOB_ERROR, "Unexpected PPM format: %s", magic);
+        goto defer;
+    }
+
+    size_t buf_len = (size_t)width * (size_t)height * 3;
+    unsigned char* buf = malloc(buf_len);
+    if (!buf)
+    {
+        nob_log(NOB_ERROR, "Failed to allocate memory for raw pixel buffer");
+        goto defer;
+    }
+
+    size_t bytes_read = fread(buf, sizeof(unsigned char), buf_len, pipe);
+
+    if (bytes_read != buf_len)
+    {
+        nob_log(NOB_ERROR, "Pipe closed early. Expected %zu bytes, got %zu", buf_len, bytes_read);
+        goto defer;
+    }
+
+    Image image = {
+        .data = buf,
+        .width = width,
+        .height = height,
+        .mipmaps = 1,
+        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8,
+    };
+
+    state->screenshot = LoadTextureFromImage(image);
+
+    UnloadImage(image);
+
+defer:
+    if (pipe) pclose(pipe);
+    if (buffer) free(buffer);
+}
+#endif
+
+void get_screen(State* state)
+{
+    CHECK_NULL(state);
+
+#if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
+    get_screen_portal(state);
+#elif CAPTURE_METHOD == CAPTURE_METHOD_GRIM
+    get_screen_grim(state);
+#endif
 }
 
 void usage(const char* program)
