@@ -32,11 +32,12 @@ typedef struct
     bool loop;
     Mode mode;
     Tool tool;
+    Vector2 tool_start;
     float tool_thickness;
     Color tool_color;
     Camera2D camera;
     Vector2 last_mouse_pos;
-    Rectangle selection;
+    Vector2 selection;
 
     RenderTexture2D canvas;
     RenderTexture2D mask;
@@ -156,6 +157,16 @@ void usage(const char* program)
     printf("-z, --zoom          Start the the zoom mode\n");
 }
 
+Rectangle get_selection_rec(State state)
+{
+    return (Rectangle){
+        state.tool_start.x,
+        state.tool_start.y,
+        state.selection.x,
+        state.selection.y,
+    };
+}
+
 void save_action(State* state)
 {
     CHECK_NULL(state);
@@ -230,7 +241,7 @@ void pencil_tool(State* state)
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
-        DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+        DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
     }
 
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
@@ -247,17 +258,16 @@ void eraser_tool(State* state)
     Vector2 current_world_mouse = GetScreenToWorld2D(mouse_pos, state->camera);
     Vector2 last_world_mouse = GetScreenToWorld2D(state->last_mouse_pos, state->camera);
 
-    BeginTextureMode(state->canvas);
+    BeginTextureMode(state->mask);
     BeginBlendMode(BLEND_SUBTRACT_COLORS);
-    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness,
-               (Color){255, 255, 255, 0});
+    DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
     EndBlendMode();
     EndTextureMode();
 }
 
 Image take_screenshot(State state)
 {
-    Rectangle selection = state.selection;
+    Rectangle selection = get_selection_rec(state);
 
     // Fix negative sizes
     if (selection.width < 0)
@@ -426,9 +436,23 @@ int main(int argc, char* argv[])
     while (!WindowShouldClose() && state.loop)
     {
         Vector2 mouse_pos = GetMousePosition();
+        Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state.camera);
+
+        BeginTextureMode(state.mask);
+        ClearBackground(BLANK);
+        EndTextureMode();
 
         float wheel = GetMouseWheelMove();
         if (wheel != 0.0f) zoom_tool(&state);
+
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
+            !CheckCollisionPointRec(mouse_pos, get_selection_rec(state)))
+        {
+            state.tool_start.x = mouse_world_pos.x;
+            state.tool_start.y = mouse_world_pos.y;
+            state.selection.x = 0;
+            state.selection.y = 0;
+        }
 
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
         {
@@ -442,17 +466,18 @@ int main(int argc, char* argv[])
                     move_tool(&state);
                     break;
                 case Tool_Select:
-                {
-                    Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state.camera);
-                    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                    if (CheckCollisionPointRec(mouse_pos, get_selection_rec(state)))
                     {
-                        state.selection.x = mouse_world_pos.x;
-                        state.selection.y = mouse_world_pos.y;
+                        Vector2 delta = Vector2Subtract(mouse_pos, state.last_mouse_pos);
+                        state.tool_start.x += delta.x;
+                        state.tool_start.y += delta.y;
                     }
-                    state.selection.width = mouse_world_pos.x - state.selection.x;
-                    state.selection.height = mouse_world_pos.y - state.selection.y;
-                }
-                break;
+                    else
+                    {
+                        state.selection.x = mouse_world_pos.x - state.tool_start.x;
+                        state.selection.y = mouse_world_pos.y - state.tool_start.y;
+                    }
+                    break;
                 case Tool_Pencil:
                     pencil_tool(&state);
                     break;
@@ -545,12 +570,11 @@ int main(int argc, char* argv[])
         {
             BeginTextureMode(state.mask);
 
-            ClearBackground(BLANK);
             DrawRectangle(0, 0, state.mask.texture.width, state.mask.texture.height,
                           ColorAlpha(GRAY, 0.75));
 
             BeginBlendMode(BLEND_SUBTRACT_COLORS);
-            Rectangle selection = state.selection;
+            Rectangle selection = get_selection_rec(state);
             if (selection.width < 0)
             {
                 selection.x += selection.width;
@@ -586,17 +610,14 @@ int main(int argc, char* argv[])
                        },
                        (Vector2){0, 0}, WHITE);
 
-        if (state.mode == Mode_Screenshot)
-        {
-            DrawTextureRec(state.mask.texture,
-                           (Rectangle){
-                               0,
-                               0,
-                               state.mask.texture.width,
-                               -state.mask.texture.height,
-                           },
-                           (Vector2){0, 0}, WHITE);
-        }
+        DrawTextureRec(state.mask.texture,
+                       (Rectangle){
+                           0,
+                           0,
+                           state.mask.texture.width,
+                           -state.mask.texture.height,
+                       },
+                       (Vector2){0, 0}, WHITE);
 
         EndMode2D();
 

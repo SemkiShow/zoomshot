@@ -13,3 +13,4 @@
 - [ ] Laser pointer tool
 - [ ] Color picker tool
 - [x] Undo/redo
+- [ ] Toolbar
