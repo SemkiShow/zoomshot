@@ -18,6 +18,9 @@
 
 #define PIXELATE_SIZE 5
 #define COLOR_PICKER_POPUP_DURATION 1
+#define ARROW_ANGLE 20 * 3.14f / 180
+#define ARROW_LENGTH 30
+#define ARROW_INVERT 0
 
 #define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
 // %s is replaced with time in TIME_FORMAT format. SCREENSHOT_PATH is prefixed with $HOME/ on save

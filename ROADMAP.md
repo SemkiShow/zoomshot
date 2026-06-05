@@ -7,7 +7,7 @@
 - [x] Screenshot copying
 - [x] Pencil tool
 - [x] Rectangle tool
-- [ ] Arrow tool
+- [x] Arrow tool
 - [x] Line tool
 - [x] Pixelate tool
 - [x] Eraser tool

@@ -29,6 +29,7 @@ typedef enum
     Tool_Pixelate,
     Tool_ColorPicker,
     Tool_Line,
+    Tool_Arrow,
 } Tool;
 
 typedef enum
@@ -477,6 +478,57 @@ void line_tool(State* state, bool write)
         EndMode2D();
 }
 
+void arrow_tool(State* state, bool write)
+{
+    CHECK_NULL(state);
+
+    Vector2 mouse_pos = GetMousePosition();
+    Vector2 current_world_mouse = GetScreenToWorld2D(mouse_pos, state->camera);
+
+    if (write)
+        BeginTextureMode(state->canvas);
+    else
+        BeginMode2D(state->camera);
+
+    DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
+    DrawLineEx(state->tool_start, current_world_mouse, state->tool_thickness, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+
+#if ARROW_INVERT
+    Vector2 arrow_pivot = state->tool_start;
+    float start_angle = 0;
+#else
+    Vector2 arrow_pivot = current_world_mouse;
+    float start_angle = 3.14f;
+#endif
+
+    Vector2 arrow1 = Vector2Add(
+        Vector2Rotate(
+            Vector2Scale(Vector2Normalize(Vector2Subtract(current_world_mouse, state->tool_start)),
+                         ARROW_LENGTH),
+            start_angle - ARROW_ANGLE),
+        arrow_pivot);
+    DrawCircleV(arrow1, state->tool_thickness / 2.0f, state->tool_color);
+    DrawLineEx(arrow1, arrow_pivot, state->tool_thickness, state->tool_color);
+
+    Vector2 arrow2 = Vector2Add(
+        Vector2Rotate(
+            Vector2Scale(Vector2Normalize(Vector2Subtract(current_world_mouse, state->tool_start)),
+                         ARROW_LENGTH),
+            start_angle + ARROW_ANGLE),
+        arrow_pivot);
+    DrawCircleV(arrow2, state->tool_thickness / 2.0f, state->tool_color);
+    DrawLineEx(arrow2, arrow_pivot, state->tool_thickness, state->tool_color);
+
+    if (write)
+    {
+        EndTextureMode();
+        save_action(state);
+    }
+    else
+        EndMode2D();
+}
+
 Image take_screenshot(State state)
 {
     Rectangle selection = fix_rec(state.selection);
@@ -658,6 +710,9 @@ void process_input(State* state)
             case Tool_Line:
                 line_tool(state, false);
                 break;
+            case Tool_Arrow:
+                arrow_tool(state, false);
+                break;
             }
         }
     }
@@ -685,6 +740,9 @@ void process_input(State* state)
             break;
         case Tool_Line:
             line_tool(state, true);
+            break;
+        case Tool_Arrow:
+            arrow_tool(state, true);
             break;
         }
     }
@@ -733,6 +791,7 @@ void process_input(State* state)
     if (IsKeyPressed(KEY_I)) state->tool = Tool_LaserPointer;
     if (IsKeyPressed(KEY_X)) state->tool = Tool_Pixelate;
     if (IsKeyPressed(KEY_L)) state->tool = Tool_Line;
+    if (IsKeyPressed(KEY_A)) state->tool = Tool_Arrow;
     if (IsKeyDown(KEY_LEFT_BRACKET))
     {
         state->tool_thickness -= THICKNESS_SPEED * GetFrameTime();
