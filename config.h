@@ -3,7 +3,7 @@
 
 #define MOUSE_WHEEL_SENSITIVITY 1.1
 #define INITIAL_ZOOM 2.0f
-#define MIN_ZOOM 0.05
+#define MIN_ZOOM 0.05f
 
 #define PENCIL_THICCNESS 3
 

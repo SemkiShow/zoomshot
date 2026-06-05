@@ -42,10 +42,36 @@ typedef struct
     {                                                                                              \
         if (!(val))                                                                                \
         {                                                                                          \
-            nob_log(NOB_ERROR, "%s is NULL\n", (#val));                                            \
+            nob_log(NOB_ERROR, #val " is NULL\n");                                                 \
             return;                                                                                \
         }                                                                                          \
     } while (0)
+
+void reset_camera(State* state)
+{
+    CHECK_NULL(state);
+
+    state->camera = (Camera2D){0};
+    switch (state->mode)
+    {
+    case Mode_Screenshot:
+        state->camera.zoom = 1.0f;
+        break;
+    case Mode_Zoom:
+    {
+        state->camera.zoom = INITIAL_ZOOM;
+        state->camera.target = (Vector2){
+            GetRenderWidth() / INITIAL_ZOOM,
+            GetRenderHeight() / INITIAL_ZOOM,
+        };
+        state->camera.offset = (Vector2){
+            GetRenderWidth() / INITIAL_ZOOM,
+            GetRenderHeight() / INITIAL_ZOOM,
+        };
+    }
+    break;
+    }
+}
 
 void screenshot_mode(State* state)
 {
@@ -53,7 +79,7 @@ void screenshot_mode(State* state)
 
     state->mode = Mode_Screenshot;
     state->tool = Tool_Select;
-    state->camera.zoom = 1.0f;
+    reset_camera(state);
 }
 
 void zoom_mode(State* state)
@@ -62,7 +88,7 @@ void zoom_mode(State* state)
 
     state->mode = Mode_Zoom;
     state->tool = Tool_Move;
-    state->camera.zoom = INITIAL_ZOOM;
+    reset_camera(state);
 }
 
 State state_new()
@@ -274,32 +300,6 @@ int main(int argc, char* argv[])
 {
     State state = state_new();
 
-    const char* program = nob_shift_args(&argc, &argv);
-    while (argc)
-    {
-        char* flag = nob_shift_args(&argc, &argv);
-        if (strcmp(flag, "-h") == 0 || strcmp(flag, "--help") == 0)
-        {
-            usage(program);
-            exit(0);
-        }
-        else if (strcmp(flag, "-s") == 0 || strcmp(flag, "--screenshot") == 0)
-        {
-            screenshot_mode(&state);
-        }
-        else if (strcmp(flag, "-z") == 0 || strcmp(flag, "--zoom") == 0)
-        {
-            zoom_mode(&state);
-        }
-        else
-        {
-            printf("Unknown flag: %s\n", flag);
-            printf("\n");
-            usage(program);
-            exit(0);
-        }
-    }
-
     XdpPortal* portal = xdp_portal_new();
     xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, NULL, on_screenshot_ready,
                                &state);
@@ -321,6 +321,32 @@ int main(int argc, char* argv[])
     state.screenshot = LoadTexture(state.screenshot_filename);
     state.canvas = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
     state.mask = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
+
+    const char* program = nob_shift_args(&argc, &argv);
+    while (argc)
+    {
+        const char* flag = nob_shift_args(&argc, &argv);
+        if (strcmp(flag, "-h") == 0 || strcmp(flag, "--help") == 0)
+        {
+            usage(program);
+            exit(0);
+        }
+        else if (strcmp(flag, "-s") == 0 || strcmp(flag, "--screenshot") == 0)
+        {
+            screenshot_mode(&state);
+        }
+        else if (strcmp(flag, "-z") == 0 || strcmp(flag, "--zoom") == 0)
+        {
+            zoom_mode(&state);
+        }
+        else
+        {
+            printf("Unknown flag: %s\n", flag);
+            printf("\n");
+            usage(program);
+            exit(0);
+        }
+    }
 
     while (!WindowShouldClose() && state.loop)
     {
@@ -387,6 +413,7 @@ int main(int argc, char* argv[])
             EndTextureMode();
         }
 
+        if (IsKeyPressed(KEY_ZERO)) reset_camera(&state);
         if (IsKeyPressed(KEY_S))
         {
             if (IsKeyDown(KEY_LEFT_CONTROL))
@@ -398,9 +425,14 @@ int main(int argc, char* argv[])
             else
             {
                 state.mode = Mode_Screenshot;
+                state.tool = Tool_Select;
             }
         }
-        if (IsKeyPressed(KEY_Z)) state.mode = Mode_Zoom;
+        if (IsKeyPressed(KEY_Z))
+        {
+            state.mode = Mode_Zoom;
+            state.tool = Tool_Move;
+        }
         if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
