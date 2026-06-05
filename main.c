@@ -251,10 +251,12 @@ void save_screenshot(Image image)
     struct tm* timeInfo;
     time(&rawTime);
     timeInfo = localtime(&rawTime);
-    strftime(timeString, sizeof(timeString), "%Y-%m-%d_%H:%M:%S", timeInfo);
+    strftime(timeString, sizeof(timeString), TIME_FORMAT, timeInfo);
 
     size_t mark = nob_temp_save();
-    ExportImage(image, nob_temp_sprintf(SCREENSHOT_PATH, timeString));
+    const char* path =
+        nob_temp_sprintf("%s/%s", getenv("HOME"), nob_temp_sprintf(SCREENSHOT_PATH, timeString));
+    ExportImage(image, path);
     nob_temp_rewind(mark);
 }
 

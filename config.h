@@ -7,7 +7,8 @@
 
 #define PENCIL_THICCNESS 3
 
-// #define SCREENSHOT_PATH "~/Pictures/Screenshots/%s.png"
-#define SCREENSHOT_PATH "./%s.png"
+#define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
+// %s is replaced with time in TIME_FORMAT format
+#define SCREENSHOT_PATH "Pictures/Screenshots/%s.png"
 
 #endif // CONFIG_H_
