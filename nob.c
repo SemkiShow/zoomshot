@@ -1,6 +1,6 @@
 #define NOB_IMPLEMENTATION
 #define NOB_EXPERIMENTAL_DELETE_OLD
-#include "nob.h" 
+#include "nob.h"
 
 void raylib(Nob_Cmd* cmd)
 {
@@ -38,7 +38,7 @@ defer:
     return result;
 }
 
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
     NOB_GO_REBUILD_URSELF(argc, argv);
 
