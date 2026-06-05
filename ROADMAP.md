@@ -6,7 +6,7 @@
 - [x] Screenshot saving
 - [x] Screenshot copying
 - [x] Pencil tool
-- [ ] Rectangle tool
+- [x] Rectangle tool
 - [ ] Arrow tool
 - [ ] Pixelate tool
 - [x] Eraser tool

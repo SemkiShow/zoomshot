@@ -21,6 +21,7 @@ typedef enum
     Tool_Move,
     Tool_Pencil,
     Tool_Eraser,
+    Tool_Rectangle,
 } Tool;
 
 typedef struct
@@ -37,7 +38,8 @@ typedef struct
     Color tool_color;
     Camera2D camera;
     Vector2 last_mouse_pos;
-    Vector2 selection;
+    Rectangle selection;
+    bool can_move_selection;
 
     RenderTexture2D canvas;
     RenderTexture2D mask;
@@ -157,14 +159,19 @@ void usage(const char* program)
     printf("-z, --zoom          Start the the zoom mode\n");
 }
 
-Rectangle get_selection_rec(State state)
+Rectangle fix_rec(Rectangle rec)
 {
-    return (Rectangle){
-        state.tool_start.x,
-        state.tool_start.y,
-        state.selection.x,
-        state.selection.y,
-    };
+    if (rec.width < 0)
+    {
+        rec.x += rec.width;
+        rec.width *= -1;
+    }
+    if (rec.height < 0)
+    {
+        rec.y += rec.height;
+        rec.height *= -1;
+    }
+    return rec;
 }
 
 void save_action(State* state)
@@ -265,21 +272,25 @@ void eraser_tool(State* state)
     EndTextureMode();
 }
 
+void rectangle_tool(State* state)
+{
+    CHECK_NULL(state);
+
+    Vector2 mouse_pos = GetMousePosition();
+    Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
+
+    Rectangle rec = {
+        state->tool_start.x,
+        state->tool_start.y,
+        mouse_world_pos.x - state->tool_start.x,
+        mouse_world_pos.y - state->tool_start.y,
+    };
+    DrawRectangleRec(fix_rec(rec), state->tool_color);
+}
+
 Image take_screenshot(State state)
 {
-    Rectangle selection = get_selection_rec(state);
-
-    // Fix negative sizes
-    if (selection.width < 0)
-    {
-        selection.x += selection.width;
-        selection.width *= -1;
-    }
-    if (selection.height < 0)
-    {
-        selection.y += selection.height;
-        selection.height *= -1;
-    }
+    Rectangle selection = fix_rec(state.selection);
 
     // Clamp left
     if (selection.x < 0)
@@ -438,20 +449,47 @@ int main(int argc, char* argv[])
         Vector2 mouse_pos = GetMousePosition();
         Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state.camera);
 
+        BeginDrawing();
+
+        ClearBackground(BLACK);
+
         BeginTextureMode(state.mask);
         ClearBackground(BLANK);
         EndTextureMode();
 
+        BeginMode2D(state.camera);
+
+        DrawTexture(state.screenshot, 0, 0, WHITE);
+
+        DrawTextureRec(state.canvas.texture,
+                       (Rectangle){
+                           0,
+                           0,
+                           state.canvas.texture.width,
+                           -state.canvas.texture.height,
+                       },
+                       (Vector2){0, 0}, WHITE);
+
+        EndMode2D();
+
         float wheel = GetMouseWheelMove();
         if (wheel != 0.0f) zoom_tool(&state);
 
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-            !CheckCollisionPointRec(mouse_pos, get_selection_rec(state)))
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
             state.tool_start.x = mouse_world_pos.x;
             state.tool_start.y = mouse_world_pos.y;
-            state.selection.x = 0;
-            state.selection.y = 0;
+            if (state.tool == Tool_Select &&
+                !CheckCollisionPointRec(mouse_pos, fix_rec(state.selection)))
+            {
+                state.can_move_selection = false;
+                state.selection = (Rectangle){
+                    mouse_world_pos.x,
+                    mouse_world_pos.y,
+                    0,
+                    0,
+                };
+            }
         }
 
         if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
@@ -466,16 +504,17 @@ int main(int argc, char* argv[])
                     move_tool(&state);
                     break;
                 case Tool_Select:
-                    if (CheckCollisionPointRec(mouse_pos, get_selection_rec(state)))
+                    if (state.can_move_selection &&
+                        CheckCollisionPointRec(mouse_pos, fix_rec(state.selection)))
                     {
                         Vector2 delta = Vector2Subtract(mouse_pos, state.last_mouse_pos);
-                        state.tool_start.x += delta.x;
-                        state.tool_start.y += delta.y;
+                        state.selection.x += delta.x;
+                        state.selection.y += delta.y;
                     }
                     else
                     {
-                        state.selection.x = mouse_world_pos.x - state.tool_start.x;
-                        state.selection.y = mouse_world_pos.y - state.tool_start.y;
+                        state.selection.width = mouse_world_pos.x - state.selection.x;
+                        state.selection.height = mouse_world_pos.y - state.selection.y;
                     }
                     break;
                 case Tool_Pencil:
@@ -483,6 +522,9 @@ int main(int argc, char* argv[])
                     break;
                 case Tool_Eraser:
                     eraser_tool(&state);
+                    break;
+                case Tool_Rectangle:
+                    rectangle_tool(&state);
                     break;
                 }
             }
@@ -493,8 +535,21 @@ int main(int argc, char* argv[])
             switch (state.tool)
             {
             case Tool_Select:
+                state.can_move_selection = true;
+                break;
             case Tool_Move:
                 break;
+            case Tool_Rectangle:
+                BeginTextureMode(state.canvas);
+                Rectangle rec = {
+                    state.tool_start.x,
+                    state.tool_start.y,
+                    mouse_world_pos.x - state.tool_start.x,
+                    mouse_world_pos.y - state.tool_start.y,
+                };
+                DrawRectangleRec(fix_rec(rec), state.tool_color);
+                EndTextureMode();
+                // fallthrough
             case Tool_Pencil:
             case Tool_Eraser:
                 save_action(&state);
@@ -538,6 +593,7 @@ int main(int argc, char* argv[])
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;
         if (IsKeyPressed(KEY_P)) state.tool = Tool_Pencil;
         if (IsKeyPressed(KEY_E)) state.tool = Tool_Eraser;
+        if (IsKeyPressed(KEY_R)) state.tool = Tool_Rectangle;
         if (IsKeyDown(KEY_LEFT_BRACKET))
         {
             state.tool_thickness -= THICKNESS_SPEED * GetFrameTime();
@@ -574,18 +630,7 @@ int main(int argc, char* argv[])
                           ColorAlpha(GRAY, 0.75));
 
             BeginBlendMode(BLEND_SUBTRACT_COLORS);
-            Rectangle selection = get_selection_rec(state);
-            if (selection.width < 0)
-            {
-                selection.x += selection.width;
-                selection.width *= -1;
-            }
-            if (selection.height < 0)
-            {
-                selection.y += selection.height;
-                selection.height *= -1;
-            }
-            DrawRectangleRec(selection, (Color){255, 255, 255, 0});
+            DrawRectangleRec(fix_rec(state.selection), (Color){255, 255, 255, 0});
             EndBlendMode();
 
             EndTextureMode();
@@ -593,22 +638,7 @@ int main(int argc, char* argv[])
 
         state.last_mouse_pos = mouse_pos;
 
-        BeginDrawing();
-
-        ClearBackground(BLACK);
-
         BeginMode2D(state.camera);
-
-        DrawTexture(state.screenshot, 0, 0, WHITE);
-
-        DrawTextureRec(state.canvas.texture,
-                       (Rectangle){
-                           0,
-                           0,
-                           state.canvas.texture.width,
-                           -state.canvas.texture.height,
-                       },
-                       (Vector2){0, 0}, WHITE);
 
         DrawTextureRec(state.mask.texture,
                        (Rectangle){
