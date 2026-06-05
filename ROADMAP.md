@@ -12,4 +12,4 @@
 - [x] Eraser tool
 - [ ] Laser pointer tool
 - [ ] Color picker tool
-- [ ] Undo/redo
+- [x] Undo/redo

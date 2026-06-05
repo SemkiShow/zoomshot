@@ -28,16 +28,23 @@ typedef struct
     GMainLoop* startup_loop;
     char* screenshot_filename;
     Texture screenshot;
+
     bool loop;
     Mode mode;
     Tool tool;
     float tool_thickness;
     Color tool_color;
     Camera2D camera;
-    RenderTexture2D canvas;
-    RenderTexture2D mask;
     Vector2 last_mouse_pos;
     Rectangle selection;
+
+    RenderTexture2D canvas;
+    RenderTexture2D mask;
+
+    Image history[MAX_UNDO];
+    size_t history_count;
+    size_t history_top;
+    size_t history_head;
 } State;
 
 #define CHECK_NULL(val)                                                                            \
@@ -147,6 +154,43 @@ void usage(const char* program)
     printf("-h, --help          Print this help message\n");
     printf("-s, --screenshot    Start the the screenshot mode (default)\n");
     printf("-z, --zoom          Start the the zoom mode\n");
+}
+
+void save_action(State* state)
+{
+    CHECK_NULL(state);
+
+    state->history_head = (state->history_head + 1) % MAX_UNDO;
+
+    if (state->history[state->history_head].data != NULL)
+    {
+        UnloadImage(state->history[state->history_head]);
+    }
+
+    state->history[state->history_head] = LoadImageFromTexture(state->canvas.texture);
+
+    if (state->history_count < MAX_UNDO) state->history_count++;
+    state->history_top = state->history_count;
+}
+
+void undo(State* state)
+{
+    CHECK_NULL(state);
+
+    if (state->history_count <= 1) return;
+    state->history_head = (state->history_head - 1 + MAX_UNDO) % MAX_UNDO;
+    state->history_count--;
+    UpdateTexture(state->canvas.texture, state->history[state->history_head].data);
+}
+
+void redo(State* state)
+{
+    CHECK_NULL(state);
+
+    if (state->history_count >= state->history_top) return;
+    state->history_head = (state->history_head + 1) % MAX_UNDO;
+    state->history_count++;
+    UpdateTexture(state->canvas.texture, state->history[state->history_head].data);
 }
 
 void zoom_tool(State* state)
@@ -351,6 +395,7 @@ int main(int argc, char* argv[])
     state.screenshot = LoadTexture(state.screenshot_filename);
     state.canvas = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
     state.mask = LoadRenderTexture(state.screenshot.width, state.screenshot.height);
+    save_action(&state);
 
     const char* program = nob_shift_args(&argc, &argv);
     while (argc)
@@ -418,6 +463,20 @@ int main(int argc, char* argv[])
             }
         }
 
+        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
+        {
+            switch (state.tool)
+            {
+            case Tool_Select:
+            case Tool_Move:
+                break;
+            case Tool_Pencil:
+            case Tool_Eraser:
+                save_action(&state);
+                break;
+            }
+        }
+
         if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) move_tool(&state);
 
         if (IsKeyPressed(KEY_ZERO)) reset_camera(&state);
@@ -437,8 +496,18 @@ int main(int argc, char* argv[])
         }
         if (IsKeyPressed(KEY_Z))
         {
-            state.mode = Mode_Zoom;
-            state.tool = Tool_Move;
+            if (IsKeyDown(KEY_LEFT_CONTROL))
+            {
+                if (IsKeyDown(KEY_LEFT_SHIFT))
+                    redo(&state);
+                else
+                    undo(&state);
+            }
+            else
+            {
+                state.mode = Mode_Zoom;
+                state.tool = Tool_Move;
+            }
         }
         if (IsKeyPressed(KEY_V)) state.tool = Tool_Select;
         if (IsKeyPressed(KEY_M)) state.tool = Tool_Move;

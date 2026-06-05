@@ -1,6 +1,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define MAX_UNDO 50
+
 #define MOUSE_WHEEL_SENSITIVITY 1.1
 #define INITIAL_ZOOM 2.0f
 #define MIN_ZOOM 0.05f
