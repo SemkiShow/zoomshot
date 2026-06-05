@@ -12,14 +12,18 @@
 
 typedef struct
 {
+    GMainLoop* startup_loop;
     Texture screenshot;
+    char* filename;
     float zoom;
 } State;
 
 State state_new()
 {
     return (State){
+        .startup_loop = g_main_loop_new(NULL, FALSE),
         .screenshot = {0},
+        .filename = NULL,
         .zoom = 1,
     };
 }
@@ -28,6 +32,8 @@ static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpoin
 {
     XdpPortal* portal = XDP_PORTAL(source_object);
     GError* error = NULL;
+    char* filename = NULL;
+    State* state = (State*)user_data;
     char* uri = xdp_portal_take_screenshot_finish(portal, res, &error);
 
     if (uri == NULL)
@@ -39,7 +45,7 @@ static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpoin
 
     nob_log(NOB_INFO, "Screenshot successfully taken!");
 
-    char* filename = g_filename_from_uri(uri, NULL, &error);
+    filename = g_filename_from_uri(uri, NULL, &error);
 
     if (filename == NULL)
     {
@@ -48,14 +54,12 @@ static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpoin
         goto defer;
     }
 
-    State* state = (State*)user_data;
-    if (IsTextureValid(state->screenshot)) UnloadTexture(state->screenshot);
-    state->screenshot = LoadTexture(filename);
-
-    g_free(filename);
+    state->filename = strdup(filename);
 
 defer:
     if (uri) g_free(uri);
+    if (filename) g_free(filename);
+    if (state->startup_loop) g_main_loop_quit(state->startup_loop);
 }
 
 int main(void)
@@ -63,10 +67,13 @@ int main(void)
     XdpPortal* portal = xdp_portal_new();
     State state = state_new();
 
-    GMainContext* glib_context = g_main_context_default();
-
     xdp_portal_take_screenshot(portal, NULL, XDP_SCREENSHOT_FLAG_NONE, NULL, on_screenshot_ready,
                                &state);
+
+    // Wait for the screenshot to be taken
+    g_main_loop_run(state.startup_loop);
+    g_main_loop_unref(state.startup_loop);
+    state.startup_loop = NULL;
 
     unsigned int flags = 0;
     flags |= FLAG_VSYNC_HINT;
@@ -77,12 +84,10 @@ int main(void)
 
     InitWindow(800, 600, "zoomshot");
 
+    state.screenshot = LoadTexture(state.filename);
+
     while (!WindowShouldClose())
     {
-        while (g_main_context_iteration(glib_context, FALSE))
-        {
-        }
-
         BeginDrawing();
 
         ClearBackground(BLACK);
