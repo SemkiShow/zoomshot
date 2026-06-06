@@ -4,14 +4,14 @@
 
 #include "config.h"
 
-void raylib(Nob_Cmd* cmd)
+static void raylib(Nob_Cmd* cmd)
 {
     nob_cmd_append(cmd, "-I.", "-I./raylib-6.0_linux_amd64/include");
     nob_cmd_append(cmd, "-L./raylib-6.0_linux_amd64/lib", "-l:libraylib.a", "-lm", "-lX11");
 }
 
 #define LIBPORTAL_FLAGS_PATH "libportal-flags.txt"
-bool libportal(Nob_Cmd* cmd)
+static bool libportal(Nob_Cmd* cmd)
 {
     bool result = true;
 
@@ -35,7 +35,7 @@ bool libportal(Nob_Cmd* cmd)
     nob_delete_file(LIBPORTAL_FLAGS_PATH);
 
 defer:
-    nob_cmd_free(portal_cmd);
+    nob_cmd_free((void*)portal_cmd);
     nob_sb_free(flags);
     return result;
 }

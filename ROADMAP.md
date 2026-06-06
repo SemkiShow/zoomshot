@@ -17,3 +17,4 @@
 - [ ] Toolbar
 - [x] Improve screenshot speed
 - [ ] Resize selection
+- [ ] Save last selection

@@ -50,7 +50,7 @@ void zoom_tool(State* state)
 
     state->camera.target = mouse_world_pos;
     state->camera.offset = mouse_pos;
-    state->camera.zoom *= pow(MOUSE_WHEEL_SENSITIVITY, wheel);
+    state->camera.zoom *= powf(MOUSE_WHEEL_SENSITIVITY, wheel);
     if (state->camera.zoom < MIN_ZOOM) state->camera.zoom = MIN_ZOOM;
 }
 
@@ -75,9 +75,9 @@ void pencil_tool(State* state)
 
     BeginTextureMode(state->canvas);
 
-    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
-    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0F, state->tool_color);
 
     EndTextureMode();
 }
@@ -93,10 +93,10 @@ void eraser_tool(State* state)
     BeginTextureMode(state->canvas);
     BeginBlendMode(BLEND_SUBTRACT_COLORS);
 
-    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
+    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0F, (Color){255, 255, 255, 0});
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness,
                (Color){255, 255, 255, 0});
-    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, (Color){255, 255, 255, 0});
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0F, (Color){255, 255, 255, 0});
 
     EndBlendMode();
     EndTextureMode();
@@ -141,9 +141,9 @@ void laser_pointer_tool(State* state)
 
     BeginMode2D(state->camera);
 
-    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(last_world_mouse, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(last_world_mouse, current_world_mouse, state->tool_thickness, state->tool_color);
-    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0F, state->tool_color);
 
     EndMode2D();
 }
@@ -177,7 +177,7 @@ void pixelate_tool(State* state, bool write)
             float width = x + PIXELATE_SIZE;
             if (x + width > rec.width) width = rec.x + rec.width - x;
             int color = GetRandomValue(0, 100);
-            DrawRectangle(x, y, width, height, (Color){color, color, color, 255});
+            DrawRectangleRec((Rectangle){x, y, width, height}, (Color){color, color, color, 255});
         }
     }
 
@@ -202,8 +202,8 @@ void color_picker_tool(State* state)
         Vector2 mouse_pos = GetMousePosition();
         Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
 
-        Clamp(mouse_world_pos.x, 0, image.width);
-        Clamp(mouse_world_pos.y, 0, image.height);
+        mouse_world_pos.x = Clamp(mouse_world_pos.x, 0, (float)image.width);
+        mouse_world_pos.y = Clamp(mouse_world_pos.y, 0, (float)image.height);
 
         Color* colors = LoadImageColors(image);
 
@@ -227,9 +227,9 @@ void line_tool(State* state, bool write)
     else
         BeginMode2D(state->camera);
 
-    DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(state->tool_start, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(state->tool_start, current_world_mouse, state->tool_thickness, state->tool_color);
-    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0F, state->tool_color);
 
     if (write)
     {
@@ -252,16 +252,16 @@ void arrow_tool(State* state, bool write)
     else
         BeginMode2D(state->camera);
 
-    DrawCircleV(state->tool_start, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(state->tool_start, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(state->tool_start, current_world_mouse, state->tool_thickness, state->tool_color);
-    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(current_world_mouse, state->tool_thickness / 2.0F, state->tool_color);
 
 #if ARROW_INVERT
     Vector2 arrow_pivot = state->tool_start;
     float start_angle = 0;
 #else
     Vector2 arrow_pivot = current_world_mouse;
-    float start_angle = 3.14f;
+    float start_angle = M_PI;
 #endif
 
     Vector2 arrow1 = Vector2Add(
@@ -270,7 +270,7 @@ void arrow_tool(State* state, bool write)
                          ARROW_LENGTH),
             start_angle - ARROW_ANGLE),
         arrow_pivot);
-    DrawCircleV(arrow1, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(arrow1, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(arrow1, arrow_pivot, state->tool_thickness, state->tool_color);
 
     Vector2 arrow2 = Vector2Add(
@@ -279,7 +279,7 @@ void arrow_tool(State* state, bool write)
                          ARROW_LENGTH),
             start_angle + ARROW_ANGLE),
         arrow_pivot);
-    DrawCircleV(arrow2, state->tool_thickness / 2.0f, state->tool_color);
+    DrawCircleV(arrow2, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(arrow2, arrow_pivot, state->tool_thickness, state->tool_color);
 
     if (write)

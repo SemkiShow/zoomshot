@@ -38,7 +38,6 @@ typedef struct
 #if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
     GMainLoop* startup_loop;
 #endif
-    char* screenshot_filename;
     Texture screenshot;
 
     bool loop;

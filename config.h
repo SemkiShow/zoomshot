@@ -1,6 +1,8 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#include <raylib.h>
+
 #define CAPTURE_METHOD_PORTAL 0
 #define CAPTURE_METHOD_GRIM 1 // Works only on wlroots
 #define CAPTURE_METHOD CAPTURE_METHOD_PORTAL
@@ -25,5 +27,23 @@
 #define TIME_FORMAT "%Y-%m-%d_%H:%M:%S"
 // %s is replaced with time in TIME_FORMAT format. SCREENSHOT_PATH is prefixed with $HOME/ on save
 #define SCREENSHOT_PATH "Pictures/Screenshots/%s.png"
+
+#define RESET_KEY KEY_ZERO
+#define SCREENSHOT_MODE_KEY KEY_S
+#define ZOOM_MODE_KEY KEY_Z
+#define SELECT_TOOL_KEY KEY_V
+#define MOVE_TOOL_KEY KEY_M
+#define PENCIL_TOOL_KEY KEY_P
+#define ERASER_TOOL_KEY KEY_E
+#define RECTANGLE_TOOL_KEY KEY_R
+#define LASER_POINTER_TOOL_KEY KEY_I
+#define PIXELATE_TOOL_KEY KEY_X
+#define COLOR_PICKER_TOOL_KEY KEY_C
+#define LINE_TOOL_KEY KEY_L
+#define ARROW_TOOL_KEY KEY_A
+#define DECREASE_TOOL_THICKNESS_KEY KEY_LEFT_BRACKET
+#define INCREASE_TOOL_THICKNESS_KEY KEY_RIGHT_BRACKET
+#define ACCEPT_KEY KEY_ENTER
+#define REJECT_KEY KEY_ESCAPE
 
 #endif // CONFIG_H_

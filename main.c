@@ -13,7 +13,7 @@
 #include <glib.h>
 #endif
 
-void reset_camera(State* state)
+static void reset_camera(State* state)
 {
     CHECK_NULL(state);
 
@@ -21,7 +21,7 @@ void reset_camera(State* state)
     switch (state->mode)
     {
     case Mode_Screenshot:
-        state->camera.zoom = 1.0f;
+        state->camera.zoom = 1.0F;
         break;
     case Mode_Zoom:
     {
@@ -43,7 +43,7 @@ void reset_camera(State* state)
     }
 }
 
-void screenshot_mode(State* state)
+static void screenshot_mode(State* state)
 {
     CHECK_NULL(state);
 
@@ -52,7 +52,7 @@ void screenshot_mode(State* state)
     reset_camera(state);
 }
 
-void zoom_mode(State* state)
+static void zoom_mode(State* state)
 {
     CHECK_NULL(state);
 
@@ -61,7 +61,7 @@ void zoom_mode(State* state)
     reset_camera(state);
 }
 
-State state_new()
+static State state_new()
 {
     State state = {0};
 #if CAPTURE_METHOD == CAPTURE_METHOD_PORTAL
@@ -101,7 +101,7 @@ Color invert_color(Color color)
     };
 }
 
-void process_input(State* state)
+static void process_input(State* state)
 {
     CHECK_NULL(state);
 
@@ -109,7 +109,7 @@ void process_input(State* state)
     Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
 
     float wheel = GetMouseWheelMove();
-    if (wheel != 0.0f) zoom_tool(state);
+    if (wheel != 0.0F) zoom_tool(state);
 
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
@@ -217,54 +217,61 @@ void process_input(State* state)
 
     if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) move_tool(state);
 
-    if (IsKeyPressed(KEY_ZERO))
+    if (IsKeyDown(KEY_LEFT_CONTROL))
     {
-        reset_camera(state);
-        state->camera.zoom = 1.0f;
-    }
-    if (IsKeyPressed(KEY_S))
-    {
-        if (IsKeyDown(KEY_LEFT_CONTROL))
+        if (IsKeyPressed(KEY_S))
         {
             Image screenshot = take_screenshot(*state);
             save_screenshot(screenshot);
             UnloadImage(screenshot);
+            return;
         }
-        else
-        {
-            state->mode = Mode_Screenshot;
-            if (state->tool == Tool_Move) state->tool = Tool_Select;
-        }
-    }
-    if (IsKeyPressed(KEY_Z))
-    {
-        if (IsKeyDown(KEY_LEFT_CONTROL))
+        if (IsKeyPressed(KEY_Z))
         {
             if (IsKeyDown(KEY_LEFT_SHIFT))
                 redo(state);
             else
                 undo(state);
+            return;
         }
-        else
+        if (IsKeyPressed(KEY_C))
         {
-            state->mode = Mode_Zoom;
-            if (state->tool == Tool_Select) state->tool = Tool_Move;
+            Image screenshot = take_screenshot(*state);
+            copy_image(screenshot);
+            UnloadImage(screenshot);
+            return;
         }
     }
-    if (IsKeyPressed(KEY_V))
+    if (IsKeyPressed(RESET_KEY))
+    {
+        reset_camera(state);
+        state->camera.zoom = 1.0F;
+    }
+    if (IsKeyPressed(SCREENSHOT_MODE_KEY))
+    {
+        state->mode = Mode_Screenshot;
+        if (state->tool == Tool_Move) state->tool = Tool_Select;
+    }
+    if (IsKeyPressed(ZOOM_MODE_KEY))
+    {
+        state->mode = Mode_Zoom;
+        if (state->tool == Tool_Select) state->tool = Tool_Move;
+    }
+    if (IsKeyPressed(SELECT_TOOL_KEY))
     {
         state->mode = Mode_Screenshot;
         state->tool = Tool_Select;
     }
-    if (IsKeyPressed(KEY_M)) state->tool = Tool_Move;
-    if (IsKeyPressed(KEY_P)) state->tool = Tool_Pencil;
-    if (IsKeyPressed(KEY_E)) state->tool = Tool_Eraser;
-    if (IsKeyPressed(KEY_R)) state->tool = Tool_Rectangle;
-    if (IsKeyPressed(KEY_I)) state->tool = Tool_LaserPointer;
-    if (IsKeyPressed(KEY_X)) state->tool = Tool_Pixelate;
-    if (IsKeyPressed(KEY_L)) state->tool = Tool_Line;
-    if (IsKeyPressed(KEY_A)) state->tool = Tool_Arrow;
-    if (IsKeyDown(KEY_LEFT_BRACKET))
+    if (IsKeyPressed(MOVE_TOOL_KEY)) state->tool = Tool_Move;
+    if (IsKeyPressed(PENCIL_TOOL_KEY)) state->tool = Tool_Pencil;
+    if (IsKeyPressed(ERASER_TOOL_KEY)) state->tool = Tool_Eraser;
+    if (IsKeyPressed(RECTANGLE_TOOL_KEY)) state->tool = Tool_Rectangle;
+    if (IsKeyPressed(LASER_POINTER_TOOL_KEY)) state->tool = Tool_LaserPointer;
+    if (IsKeyPressed(PIXELATE_TOOL_KEY)) state->tool = Tool_Pixelate;
+    if (IsKeyPressed(COLOR_PICKER_TOOL_KEY)) state->tool = Tool_ColorPicker;
+    if (IsKeyPressed(LINE_TOOL_KEY)) state->tool = Tool_Line;
+    if (IsKeyPressed(ARROW_TOOL_KEY)) state->tool = Tool_Arrow;
+    if (IsKeyDown(DECREASE_TOOL_THICKNESS_KEY))
     {
         state->tool_thickness -= THICKNESS_SPEED * GetFrameTime();
         state->tool_thickness = fmaxf(0, state->tool_thickness);
@@ -273,7 +280,7 @@ void process_input(State* state)
         DrawCircleLinesV(mouse_world_pos, state->tool_thickness / 2, state->tool_color);
         EndMode2D();
     }
-    if (IsKeyDown(KEY_RIGHT_BRACKET))
+    if (IsKeyDown(INCREASE_TOOL_THICKNESS_KEY))
     {
         state->tool_thickness += THICKNESS_SPEED * GetFrameTime();
         state->tool_thickness = fminf(MAX_THICKNESS, state->tool_thickness);
@@ -282,20 +289,7 @@ void process_input(State* state)
         DrawCircleLinesV(mouse_world_pos, state->tool_thickness / 2, state->tool_color);
         EndMode2D();
     }
-    if (IsKeyPressed(KEY_C))
-    {
-        if (IsKeyDown(KEY_LEFT_CONTROL))
-        {
-            Image screenshot = take_screenshot(*state);
-            copy_image(screenshot);
-            UnloadImage(screenshot);
-        }
-        else
-        {
-            state->tool = Tool_ColorPicker;
-        }
-    }
-    if (IsKeyPressed(KEY_ENTER))
+    if (IsKeyPressed(ACCEPT_KEY))
     {
         Image screenshot = take_screenshot(*state);
         save_screenshot(screenshot);
@@ -303,23 +297,9 @@ void process_input(State* state)
         UnloadImage(screenshot);
         state->loop = false;
     }
-
-    if (state->mode == Mode_Screenshot)
-    {
-        BeginTextureMode(state->mask);
-
-        DrawRectangle(0, 0, state->mask.texture.width, state->mask.texture.height,
-                      ColorAlpha(GRAY, 0.75));
-
-        BeginBlendMode(BLEND_SUBTRACT_COLORS);
-        DrawRectangleRec(fix_rec(state->selection), (Color){255, 255, 255, 0});
-        EndBlendMode();
-
-        EndTextureMode();
-    }
 }
 
-void usage(const char* program)
+static void usage(const char* program)
 {
     printf("Usage: %s [OPTION...]\n", program);
     printf("A simple zoomer/screenshotter app for Linux.\n");
@@ -340,6 +320,7 @@ int main(int argc, char* argv[])
     SetConfigFlags(flags);
 
     InitWindow(800, 600, "zoomshot");
+    SetExitKey(REJECT_KEY);
 
     get_screen(&state);
 
@@ -395,14 +376,28 @@ int main(int argc, char* argv[])
                        (Rectangle){
                            0,
                            0,
-                           state.canvas.texture.width,
-                           -state.canvas.texture.height,
+                           (float)state.canvas.texture.width,
+                           (float)-state.canvas.texture.height,
                        },
                        (Vector2){0, 0}, WHITE);
 
         EndMode2D();
 
         process_input(&state);
+
+        if (state.mode == Mode_Screenshot)
+        {
+            BeginTextureMode(state.mask);
+
+            DrawRectangle(0, 0, state.mask.texture.width, state.mask.texture.height,
+                          ColorAlpha(GRAY, 0.75F));
+
+            BeginBlendMode(BLEND_SUBTRACT_COLORS);
+            DrawRectangleRec(fix_rec(state.selection), (Color){255, 255, 255, 0});
+            EndBlendMode();
+
+            EndTextureMode();
+        }
 
         state.last_mouse_pos = mouse_pos;
 
@@ -412,8 +407,8 @@ int main(int argc, char* argv[])
                        (Rectangle){
                            0,
                            0,
-                           state.mask.texture.width,
-                           -state.mask.texture.height,
+                           (float)state.mask.texture.width,
+                           (float)-state.mask.texture.height,
                        },
                        (Vector2){0, 0}, WHITE);
 
@@ -432,17 +427,17 @@ int main(int argc, char* argv[])
             {
                 label = nob_temp_sprintf("#%06x", ColorToInt(state.tool_color));
             }
-            Rectangle copyButton = {0, 0, 0, 30};
-            copyButton.width = MeasureText(label, copyButton.height);
+            Rectangle copy_button = {0, 0, 0, 30};
+            copy_button.width = (float)MeasureText(label, (int)copy_button.height);
 
-            if (state.color_picker_timer <= 0 && CheckCollisionPointRec(mouse_pos, copyButton))
+            if (state.color_picker_timer <= 0 && CheckCollisionPointRec(mouse_pos, copy_button))
             {
                 SetClipboardText(label);
                 state.color_picker_timer = COLOR_PICKER_POPUP_DURATION;
             }
 
-            DrawRectangleRec(copyButton, state.tool_color);
-            DrawText(label, 0, 0, copyButton.height, invert_color(state.tool_color));
+            DrawRectangleRec(copy_button, state.tool_color);
+            DrawText(label, 0, 0, (int)copy_button.height, invert_color(state.tool_color));
 
             nob_temp_rewind(mark);
         }

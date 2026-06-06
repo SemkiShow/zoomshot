@@ -35,7 +35,7 @@ static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpoin
         goto defer;
     }
 
-    state->screenshot_filename = strdup(filename);
+    state->screenshot = LoadTexture(filename);
 
 defer:
     if (uri) g_free(uri);
@@ -58,8 +58,6 @@ static void get_screen_portal(State* state)
     g_main_loop_unref(state->startup_loop);
     state->startup_loop = NULL;
     g_object_unref(portal);
-
-    state->screenshot = LoadTexture(state->screenshot_filename);
 }
 #endif
 
@@ -153,29 +151,29 @@ Image take_screenshot(State state)
     }
 
     // Clamp right
-    if (selection.x + selection.width > state.screenshot.width)
+    if (selection.x + selection.width > (float)state.screenshot.width)
     {
-        selection.width = fmaxf(0, state.screenshot.width - selection.x);
+        selection.width = fmaxf(0, (float)state.screenshot.width - selection.x);
     }
-    if (selection.y + selection.height > state.screenshot.height)
+    if (selection.y + selection.height > (float)state.screenshot.height)
     {
-        selection.height = fmaxf(0, state.screenshot.height - selection.y);
+        selection.height = fmaxf(0, (float)state.screenshot.height - selection.y);
     }
 
-    RenderTexture2D texture = LoadRenderTexture(selection.width, selection.height);
+    RenderTexture2D texture = LoadRenderTexture((int)selection.width, (int)selection.height);
 
     BeginTextureMode(texture);
 
     ClearBackground(BLANK);
 
-    DrawTexture(state.screenshot, -selection.x, -selection.y, WHITE);
+    DrawTexture(state.screenshot, (int)-selection.x, (int)-selection.y, WHITE);
 
     DrawTextureRec(state.canvas.texture,
                    (Rectangle){
                        selection.x,
                        -selection.y,
-                       state.canvas.texture.width,
-                       -state.canvas.texture.height,
+                       (float)state.canvas.texture.width,
+                       (float)-state.canvas.texture.height,
                    },
                    (Vector2){0, 0}, WHITE);
 
@@ -188,16 +186,16 @@ Image take_screenshot(State state)
 
 void save_screenshot(Image image)
 {
-    char timeString[100];
-    time_t rawTime;
-    struct tm* timeInfo;
-    time(&rawTime);
-    timeInfo = localtime(&rawTime);
-    strftime(timeString, sizeof(timeString), TIME_FORMAT, timeInfo);
+    char time_string[100];
+    time_t raw_time;
+    struct tm* time_info;
+    time(&raw_time);
+    time_info = localtime(&raw_time);
+    strftime(time_string, sizeof(time_string), TIME_FORMAT, time_info);
 
     size_t mark = nob_temp_save();
     const char* path =
-        nob_temp_sprintf("%s/%s", getenv("HOME"), nob_temp_sprintf(SCREENSHOT_PATH, timeString));
+        nob_temp_sprintf("%s/%s", getenv("HOME"), nob_temp_sprintf(SCREENSHOT_PATH, time_string));
     ExportImage(image, path);
     nob_temp_rewind(mark);
 }
@@ -206,36 +204,36 @@ bool copy_image(Image image)
 {
     bool result = true;
 
-    int dataSize = 0;
-    unsigned char* pngData = ExportImageToMemory(image, ".png", &dataSize);
-    FILE* clipboardPipe = NULL;
+    int data_size = 0;
+    unsigned char* png_data = ExportImageToMemory(image, ".png", &data_size);
+    FILE* clipboard_pipe = NULL;
 
-    if (pngData == NULL)
+    if (png_data == NULL)
     {
         nob_log(NOB_ERROR, "Failed to ExportImageToMemory");
         return_defer(false);
     }
 
-    const char* displayServer = getenv("XDG_SESSION_TYPE");
-    if (displayServer != NULL && strcmp(displayServer, "wayland") == 0)
+    const char* display_server = getenv("XDG_SESSION_TYPE");
+    if (display_server != NULL && strcmp(display_server, "wayland") == 0)
     {
-        clipboardPipe = popen("wl-copy --type image/png", "w");
+        clipboard_pipe = popen("wl-copy --type image/png", "w");
     }
     else
     {
-        clipboardPipe = popen("xclip -selection clipboard -t image/png", "w");
+        clipboard_pipe = popen("xclip -selection clipboard -t image/png", "w");
     }
 
-    if (clipboardPipe == NULL)
+    if (clipboard_pipe == NULL)
     {
         nob_log(NOB_ERROR, "Failed to locate native Linux clipboard tools (wl-copy/xclip).");
         return_defer(false);
     }
 
-    fwrite(pngData, sizeof(pngData[0]), dataSize, clipboardPipe);
+    fwrite(png_data, sizeof(png_data[0]), data_size, clipboard_pipe);
 
 defer:
-    if (pngData) MemFree(pngData);
-    if (clipboardPipe) pclose(clipboardPipe);
+    if (png_data) MemFree(png_data);
+    if (clipboard_pipe) pclose(clipboard_pipe);
     return result;
 }
