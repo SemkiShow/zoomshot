@@ -219,7 +219,7 @@ static void process_input(State* state)
 
     if (IsKeyDown(KEY_LEFT_CONTROL))
     {
-        if (IsKeyPressed(KEY_S))
+        if (state->mode == Mode_Screenshot && IsKeyPressed(KEY_S))
         {
             Image screenshot = take_screenshot(*state);
             save_screenshot(screenshot);
@@ -234,7 +234,7 @@ static void process_input(State* state)
                 undo(state);
             return;
         }
-        if (IsKeyPressed(KEY_C))
+        if (state->mode == Mode_Screenshot && IsKeyPressed(KEY_C))
         {
             Image screenshot = take_screenshot(*state);
             copy_image(screenshot);
@@ -289,7 +289,7 @@ static void process_input(State* state)
         DrawCircleLinesV(mouse_world_pos, state->tool_thickness / 2, state->tool_color);
         EndMode2D();
     }
-    if (IsKeyPressed(ACCEPT_KEY))
+    if (state->mode == Mode_Screenshot && IsKeyPressed(ACCEPT_KEY))
     {
         Image screenshot = take_screenshot(*state);
         save_screenshot(screenshot);

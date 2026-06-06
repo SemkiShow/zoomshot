@@ -1,8 +1,6 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
-#include <raylib.h>
-
 #define CAPTURE_METHOD_PORTAL 0
 #define CAPTURE_METHOD_GRIM 1 // Works only on wlroots
 #define CAPTURE_METHOD CAPTURE_METHOD_PORTAL
