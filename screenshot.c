@@ -134,9 +134,15 @@ void get_screen(State* state)
 #endif
 }
 
-Image take_screenshot(State state)
+Image take_screenshot(const State* state)
 {
-    Rectangle selection = fix_rec(state.selection);
+    if (!state)
+    {
+        nob_log(NOB_ERROR, "state is NULL\n");
+        return (Image){0};
+    }
+
+    Rectangle selection = fix_rec(state->selection);
 
     // Clamp left
     if (selection.x < 0)
@@ -151,13 +157,13 @@ Image take_screenshot(State state)
     }
 
     // Clamp right
-    if (selection.x + selection.width > (float)state.screenshot.width)
+    if (selection.x + selection.width > (float)state->screenshot.width)
     {
-        selection.width = fmaxf(0, (float)state.screenshot.width - selection.x);
+        selection.width = fmaxf(0, (float)state->screenshot.width - selection.x);
     }
-    if (selection.y + selection.height > (float)state.screenshot.height)
+    if (selection.y + selection.height > (float)state->screenshot.height)
     {
-        selection.height = fmaxf(0, (float)state.screenshot.height - selection.y);
+        selection.height = fmaxf(0, (float)state->screenshot.height - selection.y);
     }
 
     RenderTexture2D texture = LoadRenderTexture((int)selection.width, (int)selection.height);
@@ -166,14 +172,14 @@ Image take_screenshot(State state)
 
     ClearBackground(BLANK);
 
-    DrawTexture(state.screenshot, (int)-selection.x, (int)-selection.y, WHITE);
+    DrawTexture(state->screenshot, (int)-selection.x, (int)-selection.y, WHITE);
 
-    DrawTextureRec(state.canvas.texture,
+    DrawTextureRec(state->canvas.texture,
                    (Rectangle){
                        selection.x,
                        -selection.y,
-                       (float)state.canvas.texture.width,
-                       (float)-state.canvas.texture.height,
+                       (float)state->canvas.texture.width,
+                       (float)-state->canvas.texture.height,
                    },
                    (Vector2){0, 0}, WHITE);
 

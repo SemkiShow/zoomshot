@@ -160,24 +160,28 @@ void pixelate_tool(State* state, bool write)
     else
         BeginMode2D(state->camera);
 
-    Rectangle rec = {
+    Rectangle selection = {
         state->tool_start.x,
         state->tool_start.y,
         mouse_world_pos.x - state->tool_start.x,
         mouse_world_pos.y - state->tool_start.y,
     };
-    rec = fix_rec(rec);
-    SetRandomSeed(state->pixelate_seed);
-    for (float y = rec.y; y < rec.y + rec.height; y += PIXELATE_SIZE)
+    selection = fix_rec(selection);
+    srand(state->pixelate_seed);
+    for (float y = selection.y; y < selection.y + selection.height; y += PIXELATE_SIZE)
     {
-        float height = y + PIXELATE_SIZE;
-        if (y + height > rec.height) height = rec.y + rec.height - y;
-        for (float x = rec.x; x < rec.x + rec.width; x += PIXELATE_SIZE)
+        float height = PIXELATE_SIZE;
+        if (y + height > selection.y + selection.height)
+            height = selection.y + selection.height - y;
+        for (float x = selection.x; x < selection.x + selection.width; x += PIXELATE_SIZE)
         {
-            float width = x + PIXELATE_SIZE;
-            if (x + width > rec.width) width = rec.x + rec.width - x;
-            int color = GetRandomValue(0, 100);
-            DrawRectangleRec((Rectangle){x, y, width, height}, (Color){color, color, color, 255});
+            float width = PIXELATE_SIZE;
+            if (x + width > selection.x + selection.width)
+                width = selection.x + selection.width - x;
+
+            Rectangle rec = fix_rec((Rectangle){x, y, width, height});
+            int color = rand() % 100;
+            DrawRectangleRec(rec, (Color){color, color, color, 255});
         }
     }
 
@@ -264,21 +268,14 @@ void arrow_tool(State* state, bool write)
     float start_angle = M_PI;
 #endif
 
-    Vector2 arrow1 = Vector2Add(
-        Vector2Rotate(
-            Vector2Scale(Vector2Normalize(Vector2Subtract(current_world_mouse, state->tool_start)),
-                         ARROW_LENGTH),
-            start_angle - ARROW_ANGLE),
-        arrow_pivot);
+    Vector2 arrow_base = Vector2Scale(
+        Vector2Normalize(Vector2Subtract(current_world_mouse, state->tool_start)), ARROW_LENGTH);
+
+    Vector2 arrow1 = Vector2Add(Vector2Rotate(arrow_base, start_angle - ARROW_ANGLE), arrow_pivot);
     DrawCircleV(arrow1, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(arrow1, arrow_pivot, state->tool_thickness, state->tool_color);
 
-    Vector2 arrow2 = Vector2Add(
-        Vector2Rotate(
-            Vector2Scale(Vector2Normalize(Vector2Subtract(current_world_mouse, state->tool_start)),
-                         ARROW_LENGTH),
-            start_angle + ARROW_ANGLE),
-        arrow_pivot);
+    Vector2 arrow2 = Vector2Add(Vector2Rotate(arrow_base, start_angle + ARROW_ANGLE), arrow_pivot);
     DrawCircleV(arrow2, state->tool_thickness / 2.0F, state->tool_color);
     DrawLineEx(arrow2, arrow_pivot, state->tool_thickness, state->tool_color);
 

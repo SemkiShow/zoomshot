@@ -71,7 +71,6 @@ static State state_new()
     state.tool_thickness = INITIAL_THICKNESS;
     state.tool_color = RED;
     state.pixelate_seed = time(0);
-    SetRandomSeed(state.pixelate_seed);
     screenshot_mode(&state);
     return state;
 }
@@ -204,7 +203,6 @@ static void process_input(State* state)
         case Tool_Pixelate:
             pixelate_tool(state, true);
             state->pixelate_seed = time(0);
-            SetRandomSeed(state->pixelate_seed);
             break;
         case Tool_Line:
             line_tool(state, true);
@@ -221,7 +219,7 @@ static void process_input(State* state)
     {
         if (state->mode == Mode_Screenshot && IsKeyPressed(KEY_S))
         {
-            Image screenshot = take_screenshot(*state);
+            Image screenshot = take_screenshot(state);
             save_screenshot(screenshot);
             UnloadImage(screenshot);
             return;
@@ -236,7 +234,7 @@ static void process_input(State* state)
         }
         if (state->mode == Mode_Screenshot && IsKeyPressed(KEY_C))
         {
-            Image screenshot = take_screenshot(*state);
+            Image screenshot = take_screenshot(state);
             copy_image(screenshot);
             UnloadImage(screenshot);
             return;
@@ -291,7 +289,7 @@ static void process_input(State* state)
     }
     if (state->mode == Mode_Screenshot && IsKeyPressed(ACCEPT_KEY))
     {
-        Image screenshot = take_screenshot(*state);
+        Image screenshot = take_screenshot(state);
         save_screenshot(screenshot);
         copy_image(screenshot);
         UnloadImage(screenshot);

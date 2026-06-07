@@ -4,7 +4,7 @@
 #include "zoomshot.h"
 
 void get_screen(State* state);
-Image take_screenshot(State state);
+Image take_screenshot(const State* state);
 void save_screenshot(Image image);
 bool copy_image(Image image);
 
