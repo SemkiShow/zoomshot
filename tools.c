@@ -201,7 +201,6 @@ void color_picker_tool(State* state)
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
     {
         Image image = LoadImageFromTexture(state->screenshot);
-        ImageFormat(&image, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
 
         Vector2 mouse_pos = GetMousePosition();
         Vector2 mouse_world_pos = GetScreenToWorld2D(mouse_pos, state->camera);
@@ -209,11 +208,7 @@ void color_picker_tool(State* state)
         mouse_world_pos.x = Clamp(mouse_world_pos.x, 0, (float)image.width);
         mouse_world_pos.y = Clamp(mouse_world_pos.y, 0, (float)image.height);
 
-        Color* colors = LoadImageColors(image);
-
-        state->tool_color = colors[(int)mouse_world_pos.y * image.width + (int)mouse_world_pos.x];
-
-        MemFree(colors);
+        state->tool_color = GetImageColor(image, mouse_world_pos.x, mouse_world_pos.y);
 
         UnloadImage(image);
     }
