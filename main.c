@@ -314,7 +314,6 @@ int main(int argc, char* argv[])
     unsigned int flags = 0;
     flags |= FLAG_FULLSCREEN_MODE;
     flags |= FLAG_WINDOW_UNDECORATED;
-    flags |= FLAG_WINDOW_TRANSPARENT;
     SetConfigFlags(flags);
 
     InitWindow(800, 600, "zoomshot");

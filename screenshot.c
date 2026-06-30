@@ -16,31 +16,39 @@ static void on_screenshot_ready(GObject* source_object, GAsyncResult* res, gpoin
     char* filename = NULL;
     State* state = (State*)user_data;
     char* uri = xdp_portal_take_screenshot_finish(portal, res, &error);
+    GFile* file = NULL;
+    char* contents = NULL;
 
     if (uri == NULL)
     {
         nob_log(NOB_ERROR, "Error taking screenshot: %s\n", error->message);
-        g_clear_error(&error);
         goto defer;
     }
 
     nob_log(NOB_INFO, "Screenshot successfully taken!");
 
-    filename = g_filename_from_uri(uri, NULL, &error);
+    file = g_file_new_for_uri(uri);
+    gsize length = 0;
 
-    if (filename == NULL)
+    if (!g_file_load_contents(file, NULL, &contents, &length, NULL, &error))
     {
-        nob_log(NOB_ERROR, "Failed to parse URI path: %s", error->message);
-        g_clear_error(&error);
+        nob_log(NOB_ERROR, "Failed to read screenshot data: %s", error->message);
         goto defer;
     }
 
-    state->screenshot = LoadTexture(filename);
+    Image image = LoadImageFromMemory(".png", (unsigned char*)contents, (int)length);
+
+    state->screenshot = LoadTextureFromImage(image);
+
+    UnloadImage(image);
 
 defer:
+    g_clear_error(&error);
     if (uri) g_free(uri);
     if (filename) g_free(filename);
     if (state->startup_loop) g_main_loop_quit(state->startup_loop);
+    if (file) g_object_unref(file);
+    if (contents) g_free(contents);
 }
 #endif
 
